@@ -1,0 +1,1812 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RifaMaster - Gestão de Rifas</title>
+    <meta name="description" content="Sistema completo para gerenciar rifas, registro de compradores por número, controle de pagamentos, exportação e sorteio oficial." />
+    <meta property="og:title" content="RifaMaster - Gestão de Rifas" />
+    <meta property="og:description" content="Sistema completo para gerenciar rifas, registro de compradores por número, controle de pagamentos, exportação e sorteio oficial." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+      body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; }
+      .font-mono, .tabular-nums { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+      @media print {
+        body { background: #fff !important; color: #000 !important; }
+        .no-print { display: none !important; }
+        .print-only { display: block !important; }
+      }
+      .print-only { display: none; }
+      /* Offline fallback resilience styles if CDN fails */
+      .offline-safe-grid { display: grid; gap: 0.75rem; }
+      .offline-safe-card { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 0.75rem; padding: 0.75rem; }
+    </style>
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
+
+    <!-- Offline Alert Banner (Appears only when network is down) -->
+    <div id="offline-status-banner" class="hidden bg-amber-500/20 border-b border-amber-500/40 text-amber-200 px-4 py-2 text-xs text-center font-medium no-print">
+      ⚠️ <strong>Modo Offline Ativo:</strong> Queda de conexão detectada. Todas as alterações continuam salvas e protegidas no seu dispositivo!
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 no-print">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <!-- Brand with Long Click Detection for Admin Access -->
+        <div id="brand-longclick-target" class="flex items-center gap-3 cursor-pointer select-none group relative py-1" title="Clique e segure para abrir o Painel Administrativo">
+          <div id="brand-logo-icon" class="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-sm text-lg transition-transform group-active:scale-95 relative">
+            🎟️
+            <div id="longclick-progress-ring" class="hidden absolute inset-0 rounded-lg border-2 border-amber-400 animate-pulse"></div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="brand-title-text" class="text-lg font-bold tracking-tight text-white block leading-tight group-hover:text-emerald-300 transition-colors">RifaMaster</span>
+              <span id="admin-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                👑 ADM
+              </span>
+              <span id="storage-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-950/70 text-emerald-400 border border-emerald-800/80">
+                ● Rifa Ativa
+              </span>
+            </div>
+            <span id="brand-subtext" class="text-xs text-slate-400 block group-hover:text-slate-300 transition-colors">Segure para acessar o Painel</span>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs (Only visible in Admin Mode) -->
+        <nav id="top-nav-bar" class="hidden admin-only flex items-center p-1 bg-slate-800/80 rounded-lg border border-slate-700/60 text-xs sm:text-sm">
+          <button id="nav-tab-grid" onclick="switchTab('grid')" class="px-3 py-1.5 rounded-md font-semibold bg-emerald-500 text-slate-950 shadow-sm transition-all">Grade de Números</button>
+          <button id="nav-tab-buyers" onclick="switchTab('buyers')" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all">Compradores</button>
+          <button id="nav-tab-draw" onclick="switchTab('draw')" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all">Sorteador Ao Vivo</button>
+          <button id="nav-tab-settings" onclick="switchTab('settings')" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all">Configurações</button>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button onclick="toggleSound()" id="sound-btn" title="Alternar Som" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-sm">🔊</button>
+          <button id="admin-exit-btn" onclick="exitAdminMode()" class="hidden px-3 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/50 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition-colors">
+            Sair ADM 🔒
+          </button>
+          <button onclick="window.print()" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg">🖨️ Imprimir</button>
+          <button onclick="openShareModal()" class="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-all shadow-sm">📤 Divulgar</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Viewport -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- Raffle Banner & KPI Stats -->
+      <section class="no-print space-y-4">
+        <div class="bg-gradient-to-r from-slate-800 via-slate-800/90 to-slate-850 rounded-xl p-5 border border-slate-700/80 shadow-md">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 text-xs">
+                <span class="font-semibold text-emerald-400 uppercase tracking-wider">Rifa Ativa</span>
+                <span class="text-slate-500">·</span>
+                <span id="banner-numbers-range" class="text-slate-400 font-mono">100 números</span>
+              </div>
+              <h1 id="banner-title" class="text-xl sm:text-2xl font-bold text-white tracking-tight">Grande Rifa Beneficente</h1>
+              <p id="banner-desc" class="text-xs sm:text-sm text-slate-300 max-w-2xl">Ação entre amigos com sorteio oficial. Participe e boa sorte!</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 shrink-0">
+              <div class="bg-slate-900/80 border border-slate-700/70 rounded-lg px-4 py-2.5">
+                <div class="text-[11px] font-medium text-slate-400 uppercase">🎁 Prêmio Principal</div>
+                <div id="banner-prize" class="text-sm sm:text-base font-bold text-amber-300 truncate max-w-xs">Smartphone + R$ 1.000 no PIX</div>
+              </div>
+
+              <div class="bg-emerald-950/40 border border-emerald-800/60 rounded-lg px-4 py-2.5">
+                <div class="text-[11px] font-medium text-emerald-400 uppercase">💵 Valor por Cota</div>
+                <div id="banner-price" class="text-sm sm:text-base font-bold text-emerald-300 font-mono tabular-nums">R$ 15,00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Bar & Metas (Admin Only) -->
+          <div id="admin-metas-progress" class="hidden admin-only mt-5 pt-4 border-t border-slate-700/60">
+            <div class="flex items-center justify-between text-xs text-slate-300 mb-2 font-mono">
+              <span class="flex items-center gap-2">
+                <span class="font-semibold text-white">Vendas:</span>
+                <span id="progress-paid-percent" class="text-emerald-400">0% pagos</span>
+                <span>·</span>
+                <span id="progress-reserved-percent" class="text-amber-400">0% reservados</span>
+              </span>
+              <span id="progress-counts" class="text-slate-300">0 / 100 cotas</span>
+            </div>
+            <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex border border-slate-700/80 p-0.5">
+              <div id="progress-bar-paid" class="bg-emerald-500 h-full rounded-l-full transition-all duration-300" style="width: 0%"></div>
+              <div id="progress-bar-reserved" class="bg-amber-400 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards: Metas & Arrecadação (Admin Only) -->
+        <div id="admin-metas-kpi" class="hidden admin-only grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-mono">
+          <div class="bg-slate-800/80 border border-emerald-900/40 rounded-xl p-4">
+            <div class="text-xs text-slate-400 flex items-center justify-between"><span>Pagos Confirmados</span><span>✅</span></div>
+            <div id="kpi-paid-count" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-2">0</div>
+            <div id="kpi-paid-amount" class="text-xs text-slate-300 mt-0.5">R$ 0,00</div>
+          </div>
+
+          <div class="bg-slate-800/80 border border-amber-900/40 rounded-xl p-4">
+            <div class="text-xs text-slate-400 flex items-center justify-between"><span>Reservados (Aguardando)</span><span>⏳</span></div>
+            <div id="kpi-reserved-count" class="text-xl sm:text-2xl font-bold text-amber-400 mt-2">0</div>
+            <div id="kpi-reserved-amount" class="text-xs text-slate-300 mt-0.5">R$ 0,00 pendente</div>
+          </div>
+
+          <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl p-4">
+            <div class="text-xs text-slate-400 flex items-center justify-between"><span>Números Livres</span><span>✨</span></div>
+            <div id="kpi-available-count" class="text-xl sm:text-2xl font-bold text-white mt-2">100</div>
+            <div id="kpi-available-percent" class="text-xs text-slate-400 mt-0.5">100% disponíveis</div>
+          </div>
+
+          <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl p-4">
+            <div class="text-xs text-slate-400 flex items-center justify-between"><span>Meta Total</span><span>🎯</span></div>
+            <div id="kpi-total-potential" class="text-xl sm:text-2xl font-bold text-slate-100 mt-2">R$ 1.500,00</div>
+            <div id="kpi-remaining-potential" class="text-xs text-emerald-400 mt-0.5">R$ 1.500,00 restantes</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 1: Number Grid -->
+      <section id="view-grid" class="space-y-4">
+        <!-- Search & Filter Controls -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-3 no-print">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div class="relative flex-1 max-w-md">
+              <input id="grid-search" type="text" oninput="renderGrid()" placeholder="Buscar por número (ex: 07), comprador ou WhatsApp..." class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-select-all-available" onclick="selectAllAvailable()" class="hidden px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-900 hover:bg-slate-750 border border-slate-700 rounded-lg transition-colors admin-only">Selecionar Livres</button>
+              <button id="btn-clear-selection" onclick="clearSelectedNumbers()" class="hidden px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-950/40 border border-rose-800/60 rounded-lg transition-colors admin-only">Limpar Seleção</button>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-700/60">
+            <div class="flex items-center gap-1 p-1 bg-slate-900/80 rounded-lg border border-slate-700/60 text-xs font-medium">
+              <button id="filter-btn-all" onclick="setGridFilter('all')" class="px-3 py-1.5 rounded-md bg-slate-700 text-white">Todos (<span id="count-filter-all">100</span>)</button>
+              <button id="filter-btn-available" onclick="setGridFilter('available')" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">Livres (<span id="count-filter-available">0</span>)</button>
+              <button id="filter-btn-reserved" onclick="setGridFilter('reserved')" class="hidden admin-only px-3 py-1.5 rounded-md text-amber-400 hover:text-amber-300">Reservados (<span id="count-filter-reserved">0</span>)</button>
+              <button id="filter-btn-paid" onclick="setGridFilter('paid')" class="hidden admin-only px-3 py-1.5 rounded-md text-emerald-400 hover:text-emerald-300">Pagos (<span id="count-filter-paid">0</span>)</button>
+            </div>
+            <div id="grid-showing-count" class="text-xs text-slate-400 font-mono">Exibindo 100 números</div>
+          </div>
+        </div>
+
+        <!-- Sticky Bulk Action Bar -->
+        <div id="bulk-action-bar" class="hidden sticky top-20 z-20 bg-slate-900 border-2 border-emerald-500 rounded-xl p-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 no-print">
+          <div class="flex items-center gap-3">
+            <div id="bulk-selected-count-badge" class="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-bold flex items-center justify-center text-sm font-mono tabular-nums">0</div>
+            <div>
+              <div class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                <span id="bulk-count-label">0 número(s) selecionado(s)</span>
+                <span class="text-slate-500">·</span>
+                <span id="bulk-total-price" class="text-emerald-400 font-mono tabular-nums font-extrabold">Total: R$ 0,00</span>
+              </div>
+              <div id="bulk-numbers-preview" class="text-[11px] text-slate-400 truncate max-w-sm sm:max-w-md font-mono"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openBuyerModalForSelected()" class="px-3.5 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors">👤 Registrar Comprador</button>
+            <button onclick="bulkSetStatus('paid')" class="px-3 py-2 text-xs font-medium text-emerald-300 bg-emerald-950/60 border border-emerald-700/60 rounded-lg hover:bg-emerald-900/70">✅ Marcar Pagos</button>
+            <button onclick="bulkSetStatus('reserved')" class="px-3 py-2 text-xs font-medium text-amber-300 bg-amber-950/60 border border-amber-700/60 rounded-lg hover:bg-amber-900/70">⏳ Reservar</button>
+            <button onclick="bulkSetStatus('available')" class="px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700">🗑️ Liberar</button>
+            <button onclick="clearSelectedNumbers()" class="p-2 text-slate-400 hover:text-white rounded-lg">✕</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Numbers Grid -->
+        <div id="numbers-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-2.5 sm:gap-3"></div>
+      </section>
+
+      <!-- TAB 2: Buyers List -->
+      <section id="view-buyers" class="hidden space-y-4">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-3 no-print">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <input id="buyers-search" type="text" oninput="renderBuyersList()" placeholder="Buscar participante por nome, WhatsApp ou número..." class="w-full sm:max-w-md px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <button onclick="exportCSV()" class="px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-900 hover:bg-slate-750 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">📥 Exportar Planilha (CSV)</button>
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-400 font-mono pt-2 border-t border-slate-700/60">
+            <span id="buyers-summary-count">0 participantes cadastrados</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-900/90 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-700/80">
+                <tr>
+                  <th class="px-4 py-3">Comprador</th>
+                  <th class="px-4 py-3">WhatsApp / Contato</th>
+                  <th class="px-4 py-3">Números Garantidos</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th class="px-4 py-3 text-right">Valor Total</th>
+                  <th class="px-4 py-3 text-right no-print">Ações Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="buyers-table-body" class="divide-y divide-slate-700/60"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: Live Draw Simulator -->
+      <section id="view-draw" class="hidden space-y-6">
+        <div class="bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950 border border-slate-700/80 rounded-2xl p-6 sm:p-8 text-center relative overflow-hidden shadow-2xl">
+          <div class="max-w-xl mx-auto space-y-6 relative z-10">
+            <div class="flex items-center justify-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-widest">
+              <span>🏆 Sorteador Oficial da Rifa</span>
+            </div>
+
+            <h2 id="draw-raffle-title" class="text-xl sm:text-2xl font-black text-white tracking-tight">Grande Rifa Beneficente</h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Grupo Elegível</label>
+                <select id="draw-scope-select" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="paid_only">Apenas Números Pagos</option>
+                  <option value="sold_all">Todos os Vendidos (Pagos + Reservados)</option>
+                  <option value="all_numbers">Todos os Números da Cartela</option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Prêmio Sendo Sorteado</label>
+                <input id="draw-prize-input" type="text" value="Prêmio Principal" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+            </div>
+
+            <!-- Number Drum -->
+            <div class="py-6 flex items-center justify-center">
+              <div class="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-4 border-dashed border-emerald-500/40 flex items-center justify-center bg-slate-950/90 shadow-[0_0_50px_rgba(16,185,129,0.15)]">
+                <div class="w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-slate-900 via-slate-850 to-slate-800 border-2 border-emerald-500 flex flex-col items-center justify-center shadow-inner">
+                  <span id="draw-number-drum" class="text-5xl sm:text-6xl font-black font-mono tracking-tight text-white tabular-nums">??</span>
+                  <span id="draw-status-label" class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mt-1">Número</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spin Trigger -->
+            <div>
+              <button id="btn-spin" onclick="startLiveDraw()" class="px-8 py-3.5 rounded-xl font-bold text-sm tracking-wide bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                GIRAR E SORTEAR NÚMERO
+              </button>
+            </div>
+
+            <!-- Winner Card -->
+            <div id="draw-winner-card" class="hidden mt-6 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/90 border-2 border-emerald-500 rounded-2xl p-6 shadow-2xl text-left">
+              <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider mb-2">🎉 Ganhador Oficial Confirmado!</div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div class="flex items-center gap-3">
+                    <span id="winner-card-number" class="text-4xl font-black font-mono text-emerald-400">#00</span>
+                    <div>
+                      <h3 id="winner-card-name" class="text-xl font-extrabold text-white">Nome do Ganhador</h3>
+                      <p id="winner-card-phone" class="text-xs text-slate-400 font-mono"></p>
+                    </div>
+                  </div>
+                  <div id="winner-card-prize" class="text-xs text-amber-300 font-semibold mt-2">Prêmio: Smartphone</div>
+                </div>
+                <button id="winner-card-whatsapp-btn" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md">
+                  📲 Avisar no WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Draw History -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Histórico de Sorteios Realizados</h3>
+            <button onclick="clearDrawHistory()" class="text-xs text-rose-400 hover:text-rose-300">Limpar Histórico</button>
+          </div>
+          <div id="draw-history-list" class="divide-y divide-slate-700/60"></div>
+        </div>
+      </section>
+
+      <!-- TAB 4: Settings & Data Tools -->
+      <section id="view-settings" class="hidden space-y-6">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-6 space-y-6">
+          <h2 class="text-lg font-bold text-white border-b border-slate-700 pb-3">Configurações Gerais da Rifa</h2>
+
+          <form onsubmit="handleSaveSettingsForm(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1 sm:col-span-2">
+                <label class="text-xs font-semibold text-slate-300">Título da Rifa</label>
+                <input id="setting-title" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Prêmio Principal</label>
+                <input id="setting-prize" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Prêmios Extras</label>
+                <input id="setting-secondary-prizes" type="text" placeholder="2º Prêmio: R$ 500 no PIX" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Valor por Cota (R$)</label>
+                <input id="setting-price" type="number" step="0.5" min="0.5" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Total de Números</label>
+                <select id="setting-total-numbers" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white">
+                  <option value="50">50 números</option>
+                  <option value="100">100 números (Padrão)</option>
+                  <option value="200">200 números</option>
+                  <option value="500">500 números</option>
+                  <option value="1000">1.000 números</option>
+                </select>
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Estilo de Numeração</label>
+                <select id="setting-numbering-style" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white">
+                  <option value="1-based">Iniciando em 01 (ex: 01 a 100)</option>
+                  <option value="0-based">Iniciando em 00 (ex: 00 a 99)</option>
+                </select>
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Chave PIX</label>
+                <input id="setting-pix-key" type="text" placeholder="CPF, Celular, E-mail ou Aleatória" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Favorecido do PIX</label>
+                <input id="setting-pix-name" type="text" placeholder="Nome completo" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+              </div>
+            </div>
+
+            <div class="pt-4 flex justify-end">
+              <button type="submit" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm">
+                Salvar Configurações
+              </button>
+            </div>
+          </form>
+
+          <!-- Backup / Restore / Snapshot Safety -->
+          <div class="pt-6 border-t border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Controle, Proteção & Backup</h3>
+              <span id="snapshot-status-text" class="text-[11px] text-emerald-400 font-mono">🛡️ Snapshot seguro ativo</span>
+            </div>
+
+            <div class="p-3.5 bg-slate-900/90 border border-emerald-900/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>🛡️ Cópia de Segurança Automática (Anti-Falhas)</span>
+                </div>
+                <div id="snapshot-timestamp-label" class="text-[11px] text-slate-400 mt-0.5 font-mono">
+                  Último snapshot verificado: Agora
+                </div>
+              </div>
+              <button type="button" onclick="restoreSafeSnapshot()" class="px-3 py-1.5 bg-emerald-950 text-emerald-300 hover:bg-emerald-900 border border-emerald-700/60 rounded-lg text-xs font-semibold whitespace-nowrap">
+                Restaurar Snapshot Seguro
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button onclick="downloadBackupJSON()" class="p-3 bg-slate-900 hover:bg-slate-750 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700">💾 Baixar Backup (JSON)</button>
+              <button onclick="document.getElementById('file-import-input').click()" class="p-3 bg-slate-900 hover:bg-slate-750 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700">📂 Restaurar Backup</button>
+              <input id="file-import-input" type="file" accept=".json" onchange="importBackupJSON(event)" class="hidden" />
+              <button onclick="loadSampleData()" class="p-3 bg-slate-900 hover:bg-slate-750 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700">✨ Carregar Dados Exemplo</button>
+            </div>
+            <button onclick="resetAllNumbers()" class="w-full py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors border border-rose-900/40">
+              ⚠️ Zerar Todos os Compradores da Rifa
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Register / Edit Buyer -->
+    <div id="modal-buyer" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 bg-slate-850 border-b border-slate-700/80 flex items-center justify-between">
+          <h2 id="modal-buyer-title" class="text-lg font-bold text-white">Registrar Comprador</h2>
+          <button onclick="closeBuyerModal()" class="p-1.5 text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <div class="px-6 py-3 bg-slate-950/50 border-b border-slate-800">
+          <div class="flex items-center justify-between text-xs mb-1.5">
+            <span class="text-slate-400">Números Selecionados:</span>
+            <span id="modal-buyer-total-price" class="text-emerald-400 font-bold font-mono">Total: R$ 0,00</span>
+          </div>
+          <div id="modal-buyer-numbers-pills" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto"></div>
+        </div>
+
+        <form onsubmit="handleSaveBuyerForm(event)" class="p-6 space-y-4 overflow-y-auto">
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-300 uppercase">Status do Pagamento</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" id="buyer-btn-status-paid" onclick="setModalBuyerStatus('paid')" class="p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-emerald-950/60 border-emerald-500 text-emerald-300">
+                ✅ Pago / Confirmado
+              </button>
+              <button type="button" id="buyer-btn-status-reserved" onclick="setModalBuyerStatus('reserved')" class="p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-slate-800/60 border-slate-700 text-slate-400">
+                ⏳ Reservado (Pendente)
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold text-slate-300">Nome Completo do Comprador *</label>
+            <input id="modal-buyer-name" type="text" required placeholder="Ex: Carlos Oliveira" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold text-slate-300">WhatsApp / Telefone</label>
+            <input id="modal-buyer-phone" type="text" placeholder="(11) 99999-9999" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold text-slate-300">CPF / E-mail (Opcional)</label>
+            <input id="modal-buyer-doc" type="text" placeholder="000.000.000-00" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold text-slate-300">Observações (Opcional)</label>
+            <input id="modal-buyer-notes" type="text" placeholder="Ex: Pagou via PIX" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
+            <button type="button" onclick="saveBuyerAndSendWhatsApp()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-sm">
+              📲 Salvar e Enviar Comprovante WhatsApp
+            </button>
+            <button type="submit" class="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-white font-semibold text-xs sm:text-sm rounded-xl border border-slate-700">
+              Salvar Registro
+            </button>
+            <button type="button" id="modal-buyer-release-btn" onclick="releaseCurrentBuyerModalNumbers()" class="hidden py-2 text-xs font-medium text-rose-400 hover:text-rose-300">
+              🗑️ Liberar estes números (Remover Comprador)
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Share / WhatsApp Promo -->
+    <div id="modal-share" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="text-base font-bold text-white">Divulgar Rifa no WhatsApp</h2>
+          <button onclick="closeShareModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <textarea id="share-promo-textarea" rows="7" readonly class="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono"></textarea>
+        <div class="flex items-center justify-between gap-3">
+          <button onclick="copySharePromo()" id="btn-copy-promo" class="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-750 rounded-lg">Copiar Texto</button>
+          <button onclick="openWhatsAppPromo()" class="px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg">Abrir no WhatsApp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Admin Password Authentication (Long Click Triggered) -->
+    <div id="modal-admin-auth" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🔐</span>
+            <h2 class="text-base font-bold text-white">Painel Administrativo</h2>
+          </div>
+          <button onclick="closeAdminAuthModal()" class="text-slate-400 hover:text-white p-1">✕</button>
+        </div>
+        <p class="text-xs text-slate-400">
+          Acesso restrito ao organizador da rifa. Digite a senha para desbloquear o gerenciamento completo.
+        </p>
+        <form onsubmit="handleAdminAuthSubmit(event)" class="space-y-3">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-slate-300">Senha de Acesso</label>
+            <input id="admin-password-input" type="password" required autocomplete="current-password" placeholder="Digite a senha..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div id="admin-auth-error" class="hidden text-xs text-rose-400 font-medium">
+            Senha incorreta! Tente novamente.
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" onclick="closeAdminAuthModal()" class="px-3 py-1.5 text-xs text-slate-400 hover:text-white">Cancelar</button>
+            <button type="submit" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-sm transition-all">
+              Desbloquear ADM
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Public Participant Reservation (Clean View) -->
+    <div id="modal-public-reserve" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🎟️</span>
+            <div>
+              <h2 class="text-base font-bold text-white">Escolher Cota</h2>
+              <span id="public-reserve-num-badge" class="text-xs font-mono font-bold text-emerald-400">Número #00</span>
+            </div>
+          </div>
+          <button onclick="closePublicReserveModal()" class="text-slate-400 hover:text-white p-1">✕</button>
+        </div>
+
+        <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
+          <div class="flex justify-between text-slate-300">
+            <span>Valor desta cota:</span>
+            <span id="public-reserve-price" class="font-bold text-emerald-400 font-mono">R$ 0,00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Prêmio:</span>
+            <span id="public-reserve-prize" class="text-amber-300 font-semibold truncate max-w-[200px]">Smartphone</span>
+          </div>
+        </div>
+
+        <div id="public-reserve-pix-box" class="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-emerald-300 font-semibold">Chave PIX:</span>
+            <button type="button" onclick="copyPublicPixKey()" id="btn-copy-public-pix" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold">Copiar PIX</button>
+          </div>
+          <div id="public-reserve-pix-key" class="text-xs font-mono text-white select-all break-all"></div>
+        </div>
+
+        <form onsubmit="handlePublicReserveSubmit(event)" class="space-y-3">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-slate-300">Seu Nome Completo *</label>
+            <input id="public-reserve-name" type="text" required placeholder="Digite seu nome..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-slate-300">Seu WhatsApp / Telefone *</label>
+            <input id="public-reserve-phone" type="text" required placeholder="(DDD) 99999-9999" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="pt-2 flex flex-col gap-2">
+            <button type="submit" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5">
+              <span>Garantir Cota e Enviar no WhatsApp</span>
+              <span>📲</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Public Occupied Number Viewer (Clean View) -->
+    <div id="modal-public-occupied" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 space-y-4 text-center">
+        <div class="text-3xl">🔒</div>
+        <div>
+          <h3 id="occupied-num-title" class="text-lg font-bold text-white">Número #00</h3>
+          <p id="occupied-num-status" class="text-xs text-amber-400 mt-1">Este número já foi reservado ou pago por outro participante.</p>
+        </div>
+        <p class="text-xs text-slate-400">
+          Por favor, escolha outro número livre na cartela para concorrer ao prêmio!
+        </p>
+        <button onclick="closePublicOccupiedModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl">
+          Entendido, escolher outro
+        </button>
+      </div>
+    </div>
+
+    <!-- Printable Sheet -->
+    <div id="print-sheet-container" class="print-only"></div>
+
+    <!-- Core Application Logic in index.html -->
+    <script>
+      const STORAGE_KEY = 'rifamaster_data_v1';
+      const SNAPSHOT_KEY = 'rifamaster_snapshot_safe';
+      const EMERGENCY_KEY = 'rifamaster_emergency_backup';
+      window.__RIFAMASTER_MEMORY_BACKUP = null;
+
+      // Administrator Authentication Security
+      const ADMIN_PASSWORD = 'rifadatay';
+      let isAdmin = sessionStorage.getItem('rifamaster_admin_session') === 'true';
+      let currentPublicReserveNumber = null;
+
+      let soundEnabled = true;
+      let activeTab = 'grid';
+      let gridFilter = 'all';
+      let selectedNumbers = [];
+      let currentBuyerModalNumbers = [];
+      let currentBuyerModalStatus = 'paid';
+
+      // Audio Synthesizer via Web Audio API
+      let audioCtx = null;
+      function playTone(freq, duration, type = 'triangle') {
+        if (!soundEnabled) return;
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch (e) {}
+      }
+
+      function toggleSound() {
+        soundEnabled = !soundEnabled;
+        document.getElementById('sound-btn').textContent = soundEnabled ? '🔊' : '🔇';
+        if (soundEnabled) playTone(520, 0.08);
+      }
+
+      // Initial Default Data
+      const DEFAULT_CONFIG = {
+        id: 'rifa-1',
+        title: 'Grande Rifa Beneficente',
+        description: 'Ação entre amigos com sorteio oficial. Participe e boa sorte!',
+        prize: 'Smartphone de Última Geração + R$ 1.000 no PIX',
+        secondaryPrizes: '2º Prêmio: R$ 500 no PIX · 3º Prêmio: R$ 250 no PIX',
+        pricePerNumber: 15.0,
+        totalNumbers: 100,
+        numberingStyle: '1-based',
+        pixKey: 'rifa.amigos@exemplo.com.br',
+        pixName: 'Coordenação da Rifa',
+      };
+
+      function formatNum(num, total, style) {
+        const digits = Math.max(2, String(total > 0 ? (style === '0-based' ? total - 1 : total) : 99).length);
+        return String(num).padStart(digits, '0');
+      }
+
+      function generateNumbers(config) {
+        const nums = {};
+        const start = config.numberingStyle === '0-based' ? 0 : 1;
+        const end = config.numberingStyle === '0-based' ? config.totalNumbers - 1 : config.totalNumbers;
+        for (let i = start; i <= end; i++) {
+          nums[i] = {
+            number: i,
+            formattedNumber: formatNum(i, config.totalNumbers, config.numberingStyle),
+            status: 'available',
+          };
+        }
+        return nums;
+      }
+
+      // ANTI-BLANK PROTECTION: Validate data structure before accepting
+      function isValidData(data) {
+        if (!data || typeof data !== 'object') return false;
+        if (!data.config || typeof data.config.title !== 'string' || !data.config.totalNumbers) return false;
+        if (!data.numbers || typeof data.numbers !== 'object') return false;
+        const count = Object.keys(data.numbers).length;
+        if (count === 0) return false;
+        return true;
+      }
+
+      // Multi-layer safe data loader (never wipes data on network drop or storage transient error)
+      function loadData() {
+        // Layer 1: Primary LocalStorage
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (isValidData(parsed)) {
+              window.__RIFAMASTER_MEMORY_BACKUP = parsed;
+              try { localStorage.setItem(SNAPSHOT_KEY, raw); } catch (err) {}
+              return parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('Aviso: Armazenamento principal indisponível, acionando camada de segurança:', e);
+        }
+
+        // Layer 2: Safe Snapshot
+        try {
+          const snap = localStorage.getItem(SNAPSHOT_KEY);
+          if (snap) {
+            const parsed = JSON.parse(snap);
+            if (isValidData(parsed)) {
+              console.info('Recuperação bem-sucedida através da Cópia Snapshot!');
+              window.__RIFAMASTER_MEMORY_BACKUP = parsed;
+              try { localStorage.setItem(STORAGE_KEY, snap); } catch (err) {}
+              return parsed;
+            }
+          }
+        } catch (e) {}
+
+        // Layer 3: Emergency Fallback
+        try {
+          const emer = localStorage.getItem(EMERGENCY_KEY);
+          if (emer) {
+            const parsed = JSON.parse(emer);
+            if (isValidData(parsed)) {
+              window.__RIFAMASTER_MEMORY_BACKUP = parsed;
+              return parsed;
+            }
+          }
+        } catch (e) {}
+
+        // Layer 4: In-Memory Backup
+        if (window.__RIFAMASTER_MEMORY_BACKUP && isValidData(window.__RIFAMASTER_MEMORY_BACKUP)) {
+          return window.__RIFAMASTER_MEMORY_BACKUP;
+        }
+
+        // Layer 5: Fresh setup for first-time use
+        const initial = {
+          config: DEFAULT_CONFIG,
+          numbers: generateNumbers(DEFAULT_CONFIG),
+          drawHistory: [],
+          lastUpdated: new Date().toISOString(),
+        };
+
+        const sample = [
+          { name: 'Carlos Eduardo', phone: '(11) 98765-4321', nums: [7, 14, 21], status: 'paid' },
+          { name: 'Mariana Lima', phone: '(21) 99123-4567', nums: [10, 25], status: 'paid' },
+          { name: 'Lucas Gabriel', phone: '(31) 99456-7890', nums: [3, 8], status: 'reserved' },
+          { name: 'Fernanda Cristina', phone: '(41) 98888-7777', nums: [50, 77], status: 'paid' },
+        ];
+        sample.forEach(b => {
+          b.nums.forEach(n => {
+            if (initial.numbers[n]) {
+              initial.numbers[n].status = b.status;
+              initial.numbers[n].buyerName = b.name;
+              initial.numbers[n].buyerPhone = b.phone;
+            }
+          });
+        });
+
+        saveData(initial);
+        return initial;
+      }
+
+      let appData = loadData();
+
+      // Guarded save function that never allows blanking out existing data
+      function saveData(data) {
+        if (!isValidData(data)) {
+          console.error('Gravação abortada: Os dados fornecidos são inválidos ou estão em branco!', data);
+          return;
+        }
+
+        appData = data;
+        window.__RIFAMASTER_MEMORY_BACKUP = JSON.parse(JSON.stringify(data));
+
+        try {
+          const json = JSON.stringify(data);
+          localStorage.setItem(STORAGE_KEY, json);
+          localStorage.setItem(SNAPSHOT_KEY, json);
+          localStorage.setItem(EMERGENCY_KEY, json);
+          localStorage.setItem('rifamaster_last_safe_timestamp', new Date().toISOString());
+        } catch (e) {
+          console.warn('Erro ao gravar no localStorage (armazenamento protegido na memória):', e);
+        }
+
+        updateSnapshotLabel();
+        updateStats();
+      }
+
+      function updateSnapshotLabel() {
+        const timeStr = localStorage.getItem('rifamaster_last_safe_timestamp');
+        const label = document.getElementById('snapshot-timestamp-label');
+        if (label) {
+          label.textContent = timeStr
+            ? `Último snapshot verificado: ${new Date(timeStr).toLocaleTimeString('pt-BR')} de ${new Date(timeStr).toLocaleDateString('pt-BR')}`
+            : 'Último snapshot verificado: Ativo e seguro';
+        }
+      }
+
+      function restoreSafeSnapshot() {
+        try {
+          const snap = localStorage.getItem(SNAPSHOT_KEY) || localStorage.getItem(EMERGENCY_KEY);
+          if (snap) {
+            const parsed = JSON.parse(snap);
+            if (isValidData(parsed)) {
+              if (confirm('Restaurar os dados a partir do último snapshot seguro gravado?')) {
+                saveData(parsed);
+                selectedNumbers = [];
+                renderGrid();
+                alert('Snapshot restaurado com sucesso! Seus dados foram preservados.');
+              }
+              return;
+            }
+          }
+          alert('Nenhum snapshot de emergência encontrado no armazenamento.');
+        } catch (e) {
+          alert('Erro ao tentar restaurar snapshot.');
+        }
+      }
+
+      // Switch Top Tabs (Only 'grid' is permitted for non-admins)
+      function switchTab(tab) {
+        if (!isAdmin && tab !== 'grid') {
+          return;
+        }
+        playTone(480, 0.05);
+        activeTab = tab;
+        ['grid', 'buyers', 'draw', 'settings'].forEach(t => {
+          document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+          const btn = document.getElementById(`nav-tab-${t}`);
+          if (t === tab) {
+            btn.className = 'px-3 py-1.5 rounded-md font-semibold bg-emerald-500 text-slate-950 shadow-sm transition-all';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all';
+          }
+        });
+        if (tab === 'grid') renderGrid();
+        if (tab === 'buyers') renderBuyersList();
+        if (tab === 'draw') renderDrawView();
+        if (tab === 'settings') populateSettingsForm();
+      }
+
+      // Update Statistics
+      function updateStats() {
+        const config = appData.config;
+        const list = Object.values(appData.numbers);
+        const total = list.length;
+        const paidList = list.filter(n => n.status === 'paid');
+        const reservedList = list.filter(n => n.status === 'reserved');
+        const availableList = list.filter(n => n.status === 'available');
+
+        const paidCount = paidList.length;
+        const reservedCount = reservedList.length;
+        const availableCount = availableList.length;
+
+        const paidAmount = paidCount * config.pricePerNumber;
+        const reservedAmount = reservedCount * config.pricePerNumber;
+        const totalPotential = total * config.pricePerNumber;
+
+        const paidPct = total > 0 ? Math.round((paidCount / total) * 100) : 0;
+        const resPct = total > 0 ? Math.round((reservedCount / total) * 100) : 0;
+
+        // Banner Elements
+        document.getElementById('banner-title').textContent = config.title;
+        document.getElementById('banner-desc').textContent = config.description;
+        document.getElementById('banner-prize').textContent = config.prize;
+        document.getElementById('banner-price').textContent = `R$ ${config.pricePerNumber.toFixed(2).replace('.', ',')}`;
+        document.getElementById('banner-numbers-range').textContent = `${config.totalNumbers} números (${config.numberingStyle === '0-based' ? '00' : '01'} a ${config.numberingStyle === '0-based' ? config.totalNumbers - 1 : config.totalNumbers})`;
+
+        // Progress
+        document.getElementById('progress-paid-percent').textContent = `${paidPct}% pagos`;
+        document.getElementById('progress-reserved-percent').textContent = `${resPct}% reservados`;
+        document.getElementById('progress-counts').textContent = `${paidCount + reservedCount} / ${total} cotas`;
+        document.getElementById('progress-bar-paid').style.width = `${paidPct}%`;
+        document.getElementById('progress-bar-reserved').style.width = `${resPct}%`;
+
+        // KPI
+        document.getElementById('kpi-paid-count').textContent = `${paidCount} (${paidPct}%)`;
+        document.getElementById('kpi-paid-amount').textContent = `R$ ${paidAmount.toFixed(2).replace('.', ',')}`;
+        document.getElementById('kpi-reserved-count').textContent = `${reservedCount} (${resPct}%)`;
+        document.getElementById('kpi-reserved-amount').textContent = `R$ ${reservedAmount.toFixed(2).replace('.', ',')} pendente`;
+        document.getElementById('kpi-available-count').textContent = availableCount;
+        document.getElementById('kpi-available-percent').textContent = `${total > 0 ? Math.round((availableCount / total) * 100) : 0}% disponíveis`;
+        document.getElementById('kpi-total-potential').textContent = `R$ ${totalPotential.toFixed(2).replace('.', ',')}`;
+        document.getElementById('kpi-remaining-potential').textContent = `R$ ${(totalPotential - paidAmount).toFixed(2).replace('.', ',')} restantes`;
+
+        // Filter Counts
+        document.getElementById('count-filter-all').textContent = total;
+        document.getElementById('count-filter-available').textContent = availableCount;
+        document.getElementById('count-filter-reserved').textContent = reservedCount;
+        document.getElementById('count-filter-paid').textContent = paidCount;
+      }
+
+      // Render Grid
+      function setGridFilter(filter) {
+        playTone(400, 0.04);
+        gridFilter = filter;
+        ['all', 'available', 'reserved', 'paid'].forEach(f => {
+          const btn = document.getElementById(`filter-btn-${f}`);
+          if (f === filter) {
+            btn.className = 'px-3 py-1.5 rounded-md bg-slate-700 text-white';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white';
+          }
+        });
+        renderGrid();
+      }
+
+      function renderGrid() {
+        const query = (document.getElementById('grid-search')?.value || '').toLowerCase().trim();
+        const grid = document.getElementById('numbers-grid');
+        grid.innerHTML = '';
+
+        const list = Object.values(appData.numbers).sort((a, b) => a.number - b.number);
+        const filtered = list.filter(item => {
+          if (gridFilter === 'available' && item.status !== 'available') return false;
+          if (gridFilter === 'reserved' && item.status !== 'reserved') return false;
+          if (gridFilter === 'paid' && item.status !== 'paid') return false;
+          if (!query) return true;
+          return item.formattedNumber.includes(query) ||
+                 String(item.number) === query ||
+                 (item.buyerName && item.buyerName.toLowerCase().includes(query)) ||
+                 (item.buyerPhone && item.buyerPhone.includes(query));
+        });
+
+        document.getElementById('grid-showing-count').textContent = `Exibindo ${filtered.length} de ${list.length} números`;
+
+        filtered.forEach(item => {
+          const isSelected = selectedNumbers.includes(item.number);
+          const isPaid = item.status === 'paid';
+          const isReserved = item.status === 'reserved';
+
+          const card = document.createElement('div');
+          card.className = `relative rounded-xl p-3 border transition-all duration-150 flex flex-col justify-between min-h-[92px] cursor-pointer select-none ${
+            isSelected && isAdmin
+              ? 'ring-2 ring-emerald-400 border-emerald-400 bg-emerald-950/40 shadow-md scale-[1.02]'
+              : isPaid
+              ? 'bg-slate-800/90 border-emerald-800/60 hover:border-emerald-500 hover:bg-slate-800'
+              : isReserved
+              ? 'bg-slate-800/90 border-amber-800/60 hover:border-amber-500 hover:bg-slate-800'
+              : 'bg-slate-850/80 border-slate-700/60 hover:border-emerald-500 hover:bg-slate-800'
+          }`;
+
+          card.innerHTML = `
+            <div class="flex items-start justify-between">
+              <span class="font-mono tabular-nums text-lg sm:text-xl font-bold ${
+                isPaid ? 'text-emerald-400' : isReserved ? 'text-amber-400' : 'text-slate-200'
+              }">${item.formattedNumber}</span>
+              ${
+                isAdmin
+                  ? `<button type="button" class="w-5 h-5 rounded flex items-center justify-center transition-all ${
+                      isSelected ? 'bg-emerald-500 text-slate-950 font-black' : 'border border-slate-600 bg-slate-900/60 opacity-60'
+                    }">${isSelected ? '✓' : ''}</button>`
+                  : `<span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
+                      isPaid
+                        ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+                        : isReserved
+                        ? 'bg-amber-950/60 text-amber-400 border border-amber-800/50'
+                        : 'bg-slate-800 text-emerald-400/80 border border-slate-700/80'
+                    }">${isPaid ? 'PAGO' : isReserved ? 'RESERVADO' : 'LIVRE'}</span>`
+              }
+            </div>
+            <div class="mt-2 pt-1 border-t border-slate-700/40 text-[11px] truncate">
+              ${
+                isPaid
+                  ? `<div class="text-emerald-300 font-medium truncate flex items-center gap-1"><span>✅</span><span class="truncate">${isAdmin ? (item.buyerName || 'Pago') : 'Garantido'}</span></div>`
+                  : isReserved
+                  ? `<div class="text-amber-300 font-medium truncate flex items-center gap-1"><span>⏳</span><span class="truncate">${isAdmin ? (item.buyerName || 'Reservado') : 'Reservado'}</span></div>`
+                  : `<div class="text-emerald-400 font-medium flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>Escolher Cota</span></div>`
+              }
+              ${isAdmin && item.buyerPhone ? `<div class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">${item.buyerPhone}</div>` : ''}
+            </div>
+          `;
+
+          card.onclick = (e) => {
+            if (isAdmin) {
+              if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                toggleSelectNumber(item.number);
+              } else {
+                openBuyerModal([item.number]);
+              }
+            } else {
+              // Clean public participant view
+              if (item.status === 'available') {
+                openPublicReserveModal(item.number);
+              } else {
+                openPublicOccupiedModal(item);
+              }
+            }
+          };
+
+          if (isAdmin) {
+            const checkBtn = card.querySelector('button');
+            if (checkBtn) {
+              checkBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleSelectNumber(item.number);
+              };
+            }
+          }
+
+          grid.appendChild(card);
+        });
+
+        updateBulkActionBar();
+      }
+
+      function toggleSelectNumber(num) {
+        playTone(550, 0.03);
+        if (selectedNumbers.includes(num)) {
+          selectedNumbers = selectedNumbers.filter(n => n !== num);
+        } else {
+          selectedNumbers.push(num);
+        }
+        renderGrid();
+      }
+
+      function selectAllAvailable() {
+        playTone(500, 0.05);
+        selectedNumbers = Object.values(appData.numbers)
+          .filter(n => n.status === 'available')
+          .map(n => n.number);
+        renderGrid();
+      }
+
+      function clearSelectedNumbers() {
+        playTone(400, 0.04);
+        selectedNumbers = [];
+        renderGrid();
+      }
+
+      function updateBulkActionBar() {
+        const bar = document.getElementById('bulk-action-bar');
+        const clearBtn = document.getElementById('btn-clear-selection');
+        if (!isAdmin) {
+          if (bar) bar.classList.add('hidden');
+          if (clearBtn) clearBtn.classList.add('hidden');
+          return;
+        }
+        if (selectedNumbers.length > 0) {
+          bar.classList.remove('hidden');
+          clearBtn.classList.remove('hidden');
+          document.getElementById('bulk-selected-count-badge').textContent = selectedNumbers.length;
+          document.getElementById('bulk-count-label').textContent = `${selectedNumbers.length} número(s) selecionado(s)`;
+          const totalVal = selectedNumbers.length * appData.config.pricePerNumber;
+          document.getElementById('bulk-total-price').textContent = `Total: R$ ${totalVal.toFixed(2).replace('.', ',')}`;
+          document.getElementById('bulk-numbers-preview').textContent = selectedNumbers.slice().sort((a,b)=>a-b).map(n => appData.numbers[n]?.formattedNumber || n).join(', ');
+        } else {
+          bar.classList.add('hidden');
+          clearBtn.classList.add('hidden');
+        }
+      }
+
+      function bulkSetStatus(status) {
+        if (selectedNumbers.length === 0) return;
+        playTone(600, 0.06);
+        const updated = { ...appData.numbers };
+        const now = new Date().toISOString();
+        selectedNumbers.forEach(n => {
+          if (updated[n]) {
+            if (status === 'available') {
+              updated[n] = {
+                number: n,
+                formattedNumber: updated[n].formattedNumber,
+                status: 'available',
+              };
+            } else {
+              updated[n].status = status;
+              updated[n].updatedAt = now;
+            }
+          }
+        });
+        saveData({ ...appData, numbers: updated });
+        if (status === 'available') selectedNumbers = [];
+        renderGrid();
+      }
+
+      // Buyer Modal
+      function openBuyerModal(targetNumbers) {
+        playTone(450, 0.05);
+        currentBuyerModalNumbers = targetNumbers;
+        const first = appData.numbers[targetNumbers[0]];
+        const isExisting = first && (first.status === 'paid' || first.status === 'reserved');
+
+        document.getElementById('modal-buyer-title').textContent = isExisting ? 'Editar Comprador' : 'Registrar Comprador';
+        document.getElementById('modal-buyer-name').value = isExisting ? (first.buyerName || '') : '';
+        document.getElementById('modal-buyer-phone').value = isExisting ? (first.buyerPhone || '') : '';
+        document.getElementById('modal-buyer-doc').value = isExisting ? (first.buyerDocument || '') : '';
+        document.getElementById('modal-buyer-notes').value = isExisting ? (first.notes || '') : '';
+        setModalBuyerStatus(isExisting ? first.status : 'paid');
+
+        const pills = document.getElementById('modal-buyer-numbers-pills');
+        pills.innerHTML = '';
+        targetNumbers.forEach(num => {
+          const span = document.createElement('span');
+          span.className = 'px-2 py-0.5 bg-slate-800 text-emerald-300 font-mono font-bold text-xs rounded border border-slate-700';
+          span.textContent = appData.numbers[num]?.formattedNumber || num;
+          pills.appendChild(span);
+        });
+
+        const totalAmount = targetNumbers.length * appData.config.pricePerNumber;
+        document.getElementById('modal-buyer-total-price').textContent = `Total: R$ ${totalAmount.toFixed(2).replace('.', ',')}`;
+
+        const releaseBtn = document.getElementById('modal-buyer-release-btn');
+        releaseBtn.classList.toggle('hidden', !isExisting);
+
+        document.getElementById('modal-buyer').classList.remove('hidden');
+      }
+
+      function openBuyerModalForSelected() {
+        if (selectedNumbers.length > 0) openBuyerModal(selectedNumbers);
+      }
+
+      function closeBuyerModal() {
+        document.getElementById('modal-buyer').classList.add('hidden');
+      }
+
+      function setModalBuyerStatus(status) {
+        currentBuyerModalStatus = status;
+        const btnPaid = document.getElementById('buyer-btn-status-paid');
+        const btnRes = document.getElementById('buyer-btn-status-reserved');
+        if (status === 'paid') {
+          btnPaid.className = 'p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-emerald-950/60 border-emerald-500 text-emerald-300';
+          btnRes.className = 'p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-slate-800/60 border-slate-700 text-slate-400';
+        } else {
+          btnPaid.className = 'p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-slate-800/60 border-slate-700 text-slate-400';
+          btnRes.className = 'p-3 rounded-xl border text-xs sm:text-sm font-semibold bg-amber-950/60 border-amber-500 text-amber-300';
+        }
+      }
+
+      function handleSaveBuyerForm(e) {
+        if (e) e.preventDefault();
+        const name = document.getElementById('modal-buyer-name').value.trim();
+        if (!name) return;
+        const phone = document.getElementById('modal-buyer-phone').value.trim();
+        const doc = document.getElementById('modal-buyer-doc').value.trim();
+        const notes = document.getElementById('modal-buyer-notes').value.trim();
+
+        const updated = { ...appData.numbers };
+        const now = new Date().toISOString();
+        currentBuyerModalNumbers.forEach(n => {
+          if (updated[n]) {
+            updated[n] = {
+              ...updated[n],
+              buyerName: name,
+              buyerPhone: phone,
+              buyerDocument: doc,
+              notes,
+              status: currentBuyerModalStatus,
+              updatedAt: now,
+              paidAt: currentBuyerModalStatus === 'paid' ? now : undefined,
+            };
+          }
+        });
+
+        saveData({ ...appData, numbers: updated });
+        selectedNumbers = [];
+        closeBuyerModal();
+        renderGrid();
+      }
+
+      function saveBuyerAndSendWhatsApp() {
+        const name = document.getElementById('modal-buyer-name').value.trim();
+        if (!name) {
+          alert('Por favor, informe o nome do comprador!');
+          return;
+        }
+        const phone = document.getElementById('modal-buyer-phone').value.trim();
+        handleSaveBuyerForm();
+
+        const numsStr = currentBuyerModalNumbers.map(n => appData.numbers[n]?.formattedNumber || n).join(', ');
+        const total = currentBuyerModalNumbers.length * appData.config.pricePerNumber;
+        const msg = encodeURIComponent(
+          `🎟️ *COMPROVANTE DE PARTICIPAÇÃO - RIFA*\n` +
+          `📌 *Ação:* ${appData.config.title}\n` +
+          `🏆 *Prêmio:* ${appData.config.prize}\n` +
+          `👤 *Participante:* ${name}\n` +
+          `🔢 *Números (${currentBuyerModalNumbers.length}):* [ ${numsStr} ]\n` +
+          `💵 *Valor:* R$ ${total.toFixed(2).replace('.', ',')}\n` +
+          `📊 *Status:* ${currentBuyerModalStatus === 'paid' ? '✅ PAGO E CONFIRMADO' : '⏳ RESERVADO'}\n` +
+          (appData.config.pixKey ? `🔑 *PIX:* ${appData.config.pixKey} (${appData.config.pixName || ''})\n` : '') +
+          `Muito obrigado e boa sorte! 🍀`
+        );
+
+        const cleanPhone = phone.replace(/\D/g, '');
+        const targetUrl = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+        window.open(targetUrl, '_blank');
+      }
+
+      function releaseCurrentBuyerModalNumbers() {
+        if (!confirm('Deseja realmente liberar estes números e remover o comprador?')) return;
+        bulkSetStatus('available');
+        closeBuyerModal();
+        renderGrid();
+      }
+
+      // Buyers Table View
+      function renderBuyersList() {
+        const q = (document.getElementById('buyers-search')?.value || '').toLowerCase().trim();
+        const tbody = document.getElementById('buyers-table-body');
+        tbody.innerHTML = '';
+
+        const map = new Map();
+        Object.values(appData.numbers).forEach(item => {
+          if (item.status === 'available' || !item.buyerName) return;
+          const key = `${item.buyerName.toLowerCase().trim()}_${item.buyerPhone?.trim() || ''}`;
+          if (!map.has(key)) {
+            map.set(key, {
+              name: item.buyerName,
+              phone: item.buyerPhone || '',
+              document: item.buyerDocument || '',
+              numbers: [],
+              paidCount: 0,
+              reservedCount: 0,
+              totalSpent: 0,
+            });
+          }
+          const b = map.get(key);
+          b.numbers.push(item);
+          if (item.status === 'paid') b.paidCount++; else b.reservedCount++;
+          b.totalSpent += appData.config.pricePerNumber;
+        });
+
+        const list = Array.from(map.values()).filter(b => {
+          if (!q) return true;
+          return b.name.toLowerCase().includes(q) || b.phone.includes(q) || b.numbers.some(n => n.formattedNumber.includes(q));
+        });
+
+        document.getElementById('buyers-summary-count').textContent = `${list.length} participante(s) cadastrado(s)`;
+
+        list.forEach(b => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-750/50 transition-colors';
+          const allPaid = b.reservedCount === 0;
+
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-semibold text-white">${b.name}</td>
+            <td class="px-4 py-3 text-slate-300 font-mono text-xs">${b.phone || '—'}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">
+                ${b.numbers.map(n => `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold ${n.status === 'paid' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800' : 'bg-amber-950/70 text-amber-300 border border-amber-800'}">${n.formattedNumber}</span>`).join('')}
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <span class="text-xs px-2 py-1 rounded ${allPaid ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-amber-950/60 text-amber-400 border border-amber-800/60'}">
+                ${allPaid ? '✅ Pago' : `⏳ ${b.reservedCount} pendente(s)`}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right font-mono font-bold text-white">R$ ${b.totalSpent.toFixed(2).replace('.', ',')}</td>
+            <td class="px-4 py-3 text-right no-print">
+              <button class="px-2 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded text-xs font-medium mr-1" onclick="openBuyerModal([${b.numbers.map(n=>n.number).join(',')}])">Editar</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Live Draw Simulator
+      let isSpinning = false;
+      function renderDrawView() {
+        document.getElementById('draw-raffle-title').textContent = appData.config.title;
+        document.getElementById('draw-prize-input').value = appData.config.prize;
+        renderDrawHistory();
+      }
+
+      function startLiveDraw() {
+        if (isSpinning) return;
+        const scope = document.getElementById('draw-scope-select').value;
+        const list = Object.values(appData.numbers);
+        let eligible = [];
+        if (scope === 'paid_only') eligible = list.filter(n => n.status === 'paid');
+        else if (scope === 'sold_all') eligible = list.filter(n => n.status !== 'available');
+        else eligible = list;
+
+        if (eligible.length === 0) {
+          alert('Não há números elegíveis para sortear nesta modalidade!');
+          return;
+        }
+
+        isSpinning = true;
+        document.getElementById('btn-spin').disabled = true;
+        document.getElementById('draw-winner-card').classList.add('hidden');
+
+        const chosen = eligible[Math.floor(Math.random() * eligible.length)];
+        const drum = document.getElementById('draw-number-drum');
+        const startTime = Date.now();
+        const duration = 3500;
+
+        function step() {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(1, elapsed / duration);
+          const rand = eligible[Math.floor(Math.random() * eligible.length)];
+          drum.textContent = rand.formattedNumber;
+          playTone(320, 0.03, 'square');
+
+          if (progress < 1) {
+            setTimeout(step, 40 + Math.pow(progress, 3) * 260);
+          } else {
+            drum.textContent = chosen.formattedNumber;
+            isSpinning = false;
+            document.getElementById('btn-spin').disabled = false;
+            playTone(660, 0.35);
+
+            if (typeof confetti === 'function') {
+              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+
+            const prize = document.getElementById('draw-prize-input').value;
+            const historyItem = {
+              id: `draw-${Date.now()}`,
+              number: chosen.number,
+              formattedNumber: chosen.formattedNumber,
+              winnerName: chosen.buyerName || 'Participante Avulso',
+              winnerPhone: chosen.buyerPhone || '',
+              prize: prize || appData.config.prize,
+              drawnAt: new Date().toISOString(),
+            };
+
+            const updatedHistory = [historyItem, ...(appData.drawHistory || [])];
+            saveData({ ...appData, drawHistory: updatedHistory });
+
+            // Show Winner Card
+            document.getElementById('winner-card-number').textContent = `#${chosen.formattedNumber}`;
+            document.getElementById('winner-card-name').textContent = chosen.buyerName || 'Participante Avulso';
+            document.getElementById('winner-card-phone').textContent = chosen.buyerPhone ? `Contato: ${chosen.buyerPhone}` : '';
+            document.getElementById('winner-card-prize').textContent = `Prêmio: ${historyItem.prize}`;
+            document.getElementById('draw-winner-card').classList.remove('hidden');
+
+            const waBtn = document.getElementById('winner-card-whatsapp-btn');
+            waBtn.onclick = () => {
+              const msg = encodeURIComponent(`🏆🎉 *PARABÉNS! VOCÊ GANHOU NA RIFA!*\n\nOlá *${chosen.buyerName}*, seu número *[ ${chosen.formattedNumber} ]* foi o grande sorteado para o prêmio: *${historyItem.prize}*!\n\nEntre em contato conosco para combinar a entrega! 🥳`);
+              const clean = (chosen.buyerPhone || '').replace(/\D/g, '');
+              window.open(clean ? `https://wa.me/55${clean}?text=${msg}` : `https://wa.me/?text=${msg}`, '_blank');
+            };
+
+            renderDrawHistory();
+          }
+        }
+        step();
+      }
+
+      function renderDrawHistory() {
+        const container = document.getElementById('draw-history-list');
+        container.innerHTML = '';
+        const history = appData.drawHistory || [];
+        if (history.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">Nenhum sorteio registrado ainda.</p>';
+          return;
+        }
+        history.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'py-3 flex items-center justify-between text-xs';
+          div.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="w-8 h-8 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold flex items-center justify-center">${item.formattedNumber}</span>
+              <div>
+                <span class="font-bold text-white text-sm">${item.winnerName}</span>
+                <div class="text-slate-400">${item.prize} · ${item.winnerPhone || 'Sem telefone'}</div>
+              </div>
+            </div>
+            <span class="text-slate-400 font-mono">${new Date(item.drawnAt).toLocaleDateString('pt-BR')}</span>
+          `;
+          container.appendChild(div);
+        });
+      }
+
+      function clearDrawHistory() {
+        if (!confirm('Deseja limpar todo o histórico de sorteios desta rifa?')) return;
+        saveData({ ...appData, drawHistory: [] });
+        renderDrawHistory();
+      }
+
+      // Settings
+      function populateSettingsForm() {
+        const c = appData.config;
+        document.getElementById('setting-title').value = c.title;
+        document.getElementById('setting-prize').value = c.prize;
+        document.getElementById('setting-secondary-prizes').value = c.secondaryPrizes || '';
+        document.getElementById('setting-price').value = c.pricePerNumber;
+        document.getElementById('setting-total-numbers').value = c.totalNumbers;
+        document.getElementById('setting-numbering-style').value = c.numberingStyle;
+        document.getElementById('setting-pix-key').value = c.pixKey || '';
+        document.getElementById('setting-pix-name').value = c.pixName || '';
+      }
+
+      function handleSaveSettingsForm(e) {
+        e.preventDefault();
+        playTone(600, 0.08);
+        const newTotal = parseInt(document.getElementById('setting-total-numbers').value, 10);
+        const newStyle = document.getElementById('setting-numbering-style').value;
+
+        const newConfig = {
+          ...appData.config,
+          title: document.getElementById('setting-title').value.trim(),
+          prize: document.getElementById('setting-prize').value.trim(),
+          secondaryPrizes: document.getElementById('setting-secondary-prizes').value.trim(),
+          pricePerNumber: parseFloat(document.getElementById('setting-price').value) || 10,
+          totalNumbers: newTotal,
+          numberingStyle: newStyle,
+          pixKey: document.getElementById('setting-pix-key').value.trim(),
+          pixName: document.getElementById('setting-pix-name').value.trim(),
+        };
+
+        let updatedNumbers = { ...appData.numbers };
+        if (newTotal !== appData.config.totalNumbers || newStyle !== appData.config.numberingStyle) {
+          const fresh = generateNumbers(newConfig);
+          Object.keys(fresh).forEach(k => {
+            const num = Number(k);
+            if (updatedNumbers[num]) {
+              fresh[num] = { ...fresh[num], ...updatedNumbers[num], formattedNumber: fresh[num].formattedNumber };
+            }
+          });
+          updatedNumbers = fresh;
+        }
+
+        saveData({ ...appData, config: newConfig, numbers: updatedNumbers });
+        alert('Configurações salvas com sucesso!');
+        switchTab('grid');
+      }
+
+      function downloadBackupJSON() {
+        playTone(500, 0.05);
+        const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `backup-rifamaster-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+      }
+
+      function importBackupJSON(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsed = JSON.parse(event.target.result);
+            if (parsed.config && parsed.numbers) {
+              if (confirm('Restaurar backup? Todos os dados atuais serão substituídos.')) {
+                saveData(parsed);
+                selectedNumbers = [];
+                alert('Backup restaurado!');
+                switchTab('grid');
+              }
+            }
+          } catch (err) {
+            alert('Arquivo JSON inválido.');
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function loadSampleData() {
+        if (!confirm('Carregar dados de teste com compradores fictícios?')) return;
+        localStorage.removeItem(STORAGE_KEY);
+        appData = loadData();
+        saveData(appData);
+        switchTab('grid');
+      }
+
+      function resetAllNumbers() {
+        if (!confirm('ATENÇÃO: Deseja zerar todos os compradores e limpar a cartela inteira?')) return;
+        saveData({
+          ...appData,
+          numbers: generateNumbers(appData.config),
+          drawHistory: [],
+        });
+        selectedNumbers = [];
+        renderGrid();
+      }
+
+      function exportCSV() {
+        const headers = ['Número', 'Status', 'Comprador', 'WhatsApp', 'Documento', 'Notas'];
+        const rows = Object.values(appData.numbers)
+          .sort((a,b)=>a.number - b.number)
+          .map(n => [
+            `"${n.formattedNumber}"`,
+            `"${n.status === 'paid' ? 'Pago' : n.status === 'reserved' ? 'Reservado' : 'Disponível'}"`,
+            `"${n.buyerName || ''}"`,
+            `"${n.buyerPhone || ''}"`,
+            `"${n.buyerDocument || ''}"`,
+            `"${(n.notes || '').replace(/"/g, '""')}"`,
+          ].join(';'));
+        const csv = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `rifa-compradores.csv`;
+        a.click();
+      }
+
+      // WhatsApp Share Modal
+      function openShareModal() {
+        const available = Object.values(appData.numbers).filter(n => n.status === 'available');
+        const paid = Object.values(appData.numbers).filter(n => n.status === 'paid');
+        const pct = Math.round((paid.length / appData.config.totalNumbers) * 100);
+
+        const promo = `🎉 *GRANDE RIFA: ${appData.config.title.toUpperCase()}*\n\n` +
+          `🏆 *Prêmio:* ${appData.config.prize}\n` +
+          (appData.config.secondaryPrizes ? `🎁 *Extras:* ${appData.config.secondaryPrizes}\n` : '') +
+          `💰 *Valor por cota:* Apenas R$ ${appData.config.pricePerNumber.toFixed(2).replace('.', ',')}\n` +
+          `📊 *Progresso:* ${pct}% vendido (${paid.length}/${appData.config.totalNumbers} números pagos)\n` +
+          `⚡ *Restam:* ${available.length} números livres!\n` +
+          (appData.config.pixKey ? `🔑 *Chave PIX:* ${appData.config.pixKey}\n` : '') +
+          `Escolha já o seu número e boa sorte! 🍀`;
+
+        document.getElementById('share-promo-textarea').value = promo;
+        document.getElementById('modal-share').classList.remove('hidden');
+      }
+
+      function closeShareModal() {
+        document.getElementById('modal-share').classList.add('hidden');
+      }
+
+      function copySharePromo() {
+        const text = document.getElementById('share-promo-textarea').value;
+        navigator.clipboard.writeText(text);
+        const btn = document.getElementById('btn-copy-promo');
+        btn.textContent = 'Copiado!';
+        setTimeout(() => btn.textContent = 'Copiar Texto', 2000);
+      }
+
+      function openWhatsAppPromo() {
+        const text = encodeURIComponent(document.getElementById('share-promo-textarea').value);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+
+      // Print Sheet Layout
+      window.onbeforeprint = () => {
+        const sheet = document.getElementById('print-sheet-container');
+        const list = Object.values(appData.numbers).sort((a,b)=>a.number - b.number);
+        sheet.innerHTML = `
+          <div class="p-6 text-black bg-white max-w-4xl mx-auto font-sans">
+            <h1 class="text-2xl font-black uppercase text-center">${appData.config.title}</h1>
+            <p class="text-center text-sm font-semibold mt-1">Prêmio: ${appData.config.prize} | Valor: R$ ${appData.config.pricePerNumber.toFixed(2).replace('.', ',')}</p>
+            <div class="grid grid-cols-5 gap-2 mt-4 text-xs">
+              ${list.map(n => `
+                <div class="border p-2 rounded ${n.status === 'paid' ? 'bg-gray-100 font-bold border-black' : 'border-gray-300'}">
+                  <div class="flex justify-between font-mono"><span>${n.formattedNumber}</span><span>${n.status.toUpperCase()}</span></div>
+                  <div class="truncate text-[10px] mt-1">${n.buyerName || 'LIVRE'}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      };
+
+      // Connectivity & Network Drop Protections
+      function updateConnectivityStatus() {
+        const isOnline = navigator.onLine !== false;
+        const banner = document.getElementById('offline-status-banner');
+        const badge = document.getElementById('storage-status-badge');
+        if (banner) {
+          banner.classList.toggle('hidden', isOnline);
+        }
+        if (badge) {
+          if (isOnline) {
+            badge.textContent = '● Protegido';
+            badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-950/70 text-emerald-400 border border-emerald-800/80';
+          } else {
+            badge.textContent = '● Modo Offline (Seguro)';
+            badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-950/70 text-amber-400 border border-amber-800/80';
+          }
+        }
+      }
+
+      window.addEventListener('online', () => {
+        updateConnectivityStatus();
+        console.info('Conexão restabelecida. Dados permanecem intactos.');
+      });
+
+      window.addEventListener('offline', () => {
+        updateConnectivityStatus();
+        console.warn('Queda de internet detectada. Aplicativo em modo offline protegido.');
+      });
+
+      // Emergency snapshot before closing window
+      window.addEventListener('beforeunload', () => {
+        if (appData && isValidData(appData)) {
+          try {
+            localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(appData));
+          } catch(e) {}
+        }
+      });
+
+      // Global safety net for unhandled errors
+      window.addEventListener('error', (event) => {
+        console.warn('Proteção de integridade ativa contra erro não tratado:', event.message);
+        // Ensure state is never wiped on error
+        if (!appData || !isValidData(appData)) {
+          appData = loadData();
+          updateStats();
+          renderGrid();
+        }
+      });
+
+      // Long Click Detection for Admin Authentication
+      let longClickTimer = null;
+      const LONG_CLICK_DURATION = 650; // ms
+
+      function setupLongClickAdmin() {
+        const target = document.getElementById('brand-longclick-target');
+        const ring = document.getElementById('longclick-progress-ring');
+        if (!target) return;
+
+        function startHold(e) {
+          if (e.button && e.button !== 0) return; // Only main button
+          clearHold();
+          if (ring) ring.classList.remove('hidden');
+
+          longClickTimer = setTimeout(() => {
+            clearHold();
+            playTone(720, 0.1);
+            if (navigator.vibrate) navigator.vibrate(60);
+            openAdminAuthModal();
+          }, LONG_CLICK_DURATION);
+        }
+
+        function clearHold() {
+          if (longClickTimer) {
+            clearTimeout(longClickTimer);
+            longClickTimer = null;
+          }
+          if (ring) ring.classList.add('hidden');
+        }
+
+        target.addEventListener('mousedown', startHold);
+        target.addEventListener('mouseup', clearHold);
+        target.addEventListener('mouseleave', clearHold);
+
+        target.addEventListener('touchstart', (e) => {
+          startHold(e);
+        }, { passive: true });
+
+        target.addEventListener('touchend', clearHold);
+        target.addEventListener('touchcancel', clearHold);
+      }
+
+      function openAdminAuthModal() {
+        if (isAdmin) {
+          alert('Você já está com o Modo Administrador ativo!');
+          return;
+        }
+        const modal = document.getElementById('modal-admin-auth');
+        const input = document.getElementById('admin-password-input');
+        const err = document.getElementById('admin-auth-error');
+        if (err) err.classList.add('hidden');
+        if (input) input.value = '';
+        if (modal) modal.classList.remove('hidden');
+        setTimeout(() => input?.focus(), 150);
+      }
+
+      function closeAdminAuthModal() {
+        document.getElementById('modal-admin-auth')?.classList.add('hidden');
+      }
+
+      function handleAdminAuthSubmit(e) {
+        if (e) e.preventDefault();
+        const input = document.getElementById('admin-password-input');
+        const password = input ? input.value.trim() : '';
+
+        if (password === ADMIN_PASSWORD) {
+          isAdmin = true;
+          sessionStorage.setItem('rifamaster_admin_session', 'true');
+          closeAdminAuthModal();
+          updateAdminUI();
+          playTone(660, 0.25);
+          if (typeof confetti === 'function') {
+            confetti({ particleCount: 60, spread: 60, origin: { y: 0.15, x: 0.2 } });
+          }
+        } else {
+          playTone(220, 0.2, 'sawtooth');
+          const err = document.getElementById('admin-auth-error');
+          if (err) err.classList.remove('hidden');
+          input?.select();
+        }
+      }
+
+      function exitAdminMode() {
+        if (!confirm('Deseja sair do Painel Administrativo e voltar à visualização pública?')) return;
+        isAdmin = false;
+        sessionStorage.removeItem('rifamaster_admin_session');
+        selectedNumbers = [];
+        switchTab('grid');
+        updateAdminUI();
+        playTone(380, 0.08);
+      }
+
+      function updateAdminUI() {
+        // Toggle nav items
+        document.querySelectorAll('.admin-only').forEach(el => {
+          el.classList.toggle('hidden', !isAdmin);
+        });
+
+        // Toggle admin badge and exit button
+        const badge = document.getElementById('admin-badge');
+        if (badge) badge.classList.toggle('hidden', !isAdmin);
+
+        const exitBtn = document.getElementById('admin-exit-btn');
+        if (exitBtn) exitBtn.classList.toggle('hidden', !isAdmin);
+
+        // Subtext in brand
+        const subtext = document.getElementById('brand-subtext');
+        if (subtext) {
+          subtext.textContent = isAdmin
+            ? '👑 Modo Administrador Ativo'
+            : 'Segure para acessar o Painel';
+        }
+
+        // Adjust search placeholder
+        const searchInput = document.getElementById('grid-search');
+        if (searchInput) {
+          searchInput.placeholder = isAdmin
+            ? 'Buscar por número, comprador ou WhatsApp...'
+            : 'Buscar número na cartela (ex: 07)...';
+        }
+
+        if (!isAdmin) {
+          selectedNumbers = [];
+          document.getElementById('bulk-action-bar')?.classList.add('hidden');
+        }
+
+        renderGrid();
+      }
+
+      // Public Participant Clean Reservation Functions
+      function openPublicReserveModal(num) {
+        playTone(450, 0.05);
+        currentPublicReserveNumber = num;
+        const item = appData.numbers[num];
+        const formatted = item ? item.formattedNumber : String(num);
+
+        document.getElementById('public-reserve-num-badge').textContent = `Cota #${formatted}`;
+        document.getElementById('public-reserve-price').textContent = `R$ ${appData.config.pricePerNumber.toFixed(2).replace('.', ',')}`;
+        document.getElementById('public-reserve-prize').textContent = appData.config.prize;
+
+        const pixBox = document.getElementById('public-reserve-pix-box');
+        const pixKeyEl = document.getElementById('public-reserve-pix-key');
+        if (appData.config.pixKey) {
+          pixBox.classList.remove('hidden');
+          pixKeyEl.textContent = `${appData.config.pixKey}${appData.config.pixName ? ' (' + appData.config.pixName + ')' : ''}`;
+        } else {
+          pixBox.classList.add('hidden');
+        }
+
+        document.getElementById('public-reserve-name').value = '';
+        document.getElementById('public-reserve-phone').value = '';
+        document.getElementById('modal-public-reserve').classList.remove('hidden');
+      }
+
+      function closePublicReserveModal() {
+        document.getElementById('modal-public-reserve').classList.add('hidden');
+      }
+
+      function copyPublicPixKey() {
+        if (!appData.config.pixKey) return;
+        playTone(550, 0.04);
+        navigator.clipboard.writeText(appData.config.pixKey);
+        const btn = document.getElementById('btn-copy-public-pix');
+        btn.textContent = 'Copiado!';
+        setTimeout(() => btn.textContent = 'Copiar PIX', 2000);
+      }
+
+      function handlePublicReserveSubmit(e) {
+        if (e) e.preventDefault();
+        const name = document.getElementById('public-reserve-name').value.trim();
+        const phone = document.getElementById('public-reserve-phone').value.trim();
+        if (!name || !phone || currentPublicReserveNumber === null) return;
+
+        playTone(600, 0.08);
+        const num = currentPublicReserveNumber;
+        const item = appData.numbers[num];
+        const formatted = item ? item.formattedNumber : String(num);
+
+        // Save as reserved
+        const updated = { ...appData.numbers };
+        updated[num] = {
+          ...updated[num],
+          buyerName: name,
+          buyerPhone: phone,
+          status: 'reserved',
+          updatedAt: new Date().toISOString(),
+        };
+        saveData({ ...appData, numbers: updated });
+        closePublicReserveModal();
+        renderGrid();
+
+        // Open WhatsApp directly with reservation notice
+        const msg = encodeURIComponent(
+          `Olá! Gostaria de garantir a cota *#${formatted}* na *${appData.config.title}*!\n\n` +
+          `👤 *Participante:* ${name}\n` +
+          `📱 *WhatsApp:* ${phone}\n` +
+          `🔢 *Número Escolhido:* [ ${formatted} ]\n` +
+          `💵 *Valor da Cota:* R$ ${appData.config.pricePerNumber.toFixed(2).replace('.', ',')}\n\n` +
+          (appData.config.pixKey ? `🔑 *PIX para envio:* ${appData.config.pixKey}\n\n` : '') +
+          `Estou enviando para confirmação da reserva!`
+        );
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
+      }
+
+      function openPublicOccupiedModal(item) {
+        playTone(300, 0.06);
+        document.getElementById('occupied-num-title').textContent = `Cota #${item.formattedNumber}`;
+        document.getElementById('occupied-num-status').textContent = item.status === 'paid'
+          ? 'Este número já foi adquirido com pagamento confirmado.'
+          : 'Este número já se encontra reservado por outro participante.';
+        document.getElementById('modal-public-occupied').classList.remove('hidden');
+      }
+
+      function closePublicOccupiedModal() {
+        document.getElementById('modal-public-occupied').classList.add('hidden');
+      }
+
+      // Initial Bootstrap
+      setupLongClickAdmin();
+      updateAdminUI();
+      updateConnectivityStatus();
+      updateSnapshotLabel();
+      updateStats();
+      renderGrid();
+    </script>
+  </body>
+</html>
