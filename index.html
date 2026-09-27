@@ -23,7 +23,13 @@
         .print-only { display: block !important; }
       }
       .print-only { display: none; }
-      /* Offline fallback resilience styles if CDN fails */
+      /* Ensure modals and hidden utilities work reliably across all hosting environments (GitHub Pages, file protocol, CDN lag) */
+      .hidden { display: none !important; }
+      #modal-admin-auth:not(.hidden) { display: flex !important; }
+      #modal-buyer:not(.hidden) { display: flex !important; }
+      #modal-public-reserve:not(.hidden) { display: flex !important; }
+      #modal-public-occupied:not(.hidden) { display: flex !important; }
+      #modal-share:not(.hidden) { display: flex !important; }
       .offline-safe-grid { display: grid; gap: 0.75rem; }
       .offline-safe-card { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 0.75rem; padding: 0.75rem; }
     </style>
@@ -72,10 +78,17 @@
         </nav>
 
         <div class="flex items-center gap-2">
-          <button onclick="toggleSound()" id="sound-btn" title="Alternar Som" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-sm">🔊</button>
-          <button id="admin-exit-btn" onclick="exitAdminMode()" class="hidden px-3 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/50 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition-colors">
-            Sair ADM 🔒
+          <!-- Direct Admin Access Button -->
+          <button id="admin-login-btn" onclick="openAdminAuthModal()" type="button" class="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 hover:text-white border border-slate-700 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
+            <span>Painel ADM</span>
+            <span>🔐</span>
           </button>
+          <!-- Exit Admin Button -->
+          <button id="admin-exit-btn" onclick="exitAdminMode()" type="button" class="hidden px-3 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+            <span>Sair ADM</span>
+            <span>🔒</span>
+          </button>
+          <button onclick="toggleSound()" id="sound-btn" title="Alternar Som" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-sm">🔊</button>
           <button onclick="window.print()" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg">🖨️ Imprimir</button>
           <button onclick="openShareModal()" class="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-all shadow-sm">📤 Divulgar</button>
         </div>
@@ -612,7 +625,12 @@
 
       // Administrator Authentication Security
       const ADMIN_PASSWORD = 'rifadatay';
-      let isAdmin = sessionStorage.getItem('rifamaster_admin_session') === 'true';
+      let isAdmin = false;
+      try {
+        isAdmin = sessionStorage.getItem('rifamaster_admin_session') === 'true';
+      } catch (e) {
+        isAdmin = false;
+      }
       let currentPublicReserveNumber = null;
 
       let soundEnabled = true;
@@ -1110,7 +1128,11 @@
         const releaseBtn = document.getElementById('modal-buyer-release-btn');
         releaseBtn.classList.toggle('hidden', !isExisting);
 
-        document.getElementById('modal-buyer').classList.remove('hidden');
+        const modal = document.getElementById('modal-buyer');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
       }
 
       function openBuyerModalForSelected() {
@@ -1118,7 +1140,11 @@
       }
 
       function closeBuyerModal() {
-        document.getElementById('modal-buyer').classList.add('hidden');
+        const modal = document.getElementById('modal-buyer');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
       }
 
       function setModalBuyerStatus(status) {
@@ -1510,11 +1536,19 @@
           `Escolha já o seu número e boa sorte! 🍀`;
 
         document.getElementById('share-promo-textarea').value = promo;
-        document.getElementById('modal-share').classList.remove('hidden');
+        const modal = document.getElementById('modal-share');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
       }
 
       function closeShareModal() {
-        document.getElementById('modal-share').classList.add('hidden');
+        const modal = document.getElementById('modal-share');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
       }
 
       function copySharePromo() {
@@ -1688,15 +1722,27 @@
         const modal = document.getElementById('modal-admin-auth');
         const input = document.getElementById('admin-password-input');
         const err = document.getElementById('admin-auth-error');
-        if (err) err.classList.add('hidden');
+        if (err) {
+          err.classList.add('hidden');
+          err.style.display = 'none';
+        }
         if (input) input.value = '';
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
         setTimeout(() => input?.focus(), 150);
       }
+      window.openAdminAuthModal = openAdminAuthModal;
 
       function closeAdminAuthModal() {
-        document.getElementById('modal-admin-auth')?.classList.add('hidden');
+        const modal = document.getElementById('modal-admin-auth');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
       }
+      window.closeAdminAuthModal = closeAdminAuthModal;
 
       function handleAdminAuthSubmit(e) {
         if (e) e.preventDefault();
@@ -1705,7 +1751,9 @@
 
         if (password === ADMIN_PASSWORD) {
           isAdmin = true;
-          sessionStorage.setItem('rifamaster_admin_session', 'true');
+          try {
+            sessionStorage.setItem('rifamaster_admin_session', 'true');
+          } catch(err) {}
           closeAdminAuthModal();
           updateAdminUI();
           playTone(660, 0.25);
@@ -1715,33 +1763,44 @@
         } else {
           playTone(220, 0.2, 'sawtooth');
           const err = document.getElementById('admin-auth-error');
-          if (err) err.classList.remove('hidden');
+          if (err) {
+            err.classList.remove('hidden');
+            err.style.display = 'block';
+          }
           input?.select();
         }
       }
+      window.handleAdminAuthSubmit = handleAdminAuthSubmit;
 
       function exitAdminMode() {
         if (!confirm('Deseja sair do Painel Administrativo e voltar à visualização pública?')) return;
         isAdmin = false;
-        sessionStorage.removeItem('rifamaster_admin_session');
+        try {
+          sessionStorage.removeItem('rifamaster_admin_session');
+        } catch(err) {}
         selectedNumbers = [];
         switchTab('grid');
         updateAdminUI();
         playTone(380, 0.08);
       }
+      window.exitAdminMode = exitAdminMode;
 
       function updateAdminUI() {
-        // Toggle nav items
+        // Toggle all admin-only elements
         document.querySelectorAll('.admin-only').forEach(el => {
           el.classList.toggle('hidden', !isAdmin);
         });
 
-        // Toggle admin badge and exit button
-        const badge = document.getElementById('admin-badge');
-        if (badge) badge.classList.toggle('hidden', !isAdmin);
+        // Toggle admin login button and exit button
+        const loginBtn = document.getElementById('admin-login-btn');
+        if (loginBtn) loginBtn.classList.toggle('hidden', isAdmin);
 
         const exitBtn = document.getElementById('admin-exit-btn');
         if (exitBtn) exitBtn.classList.toggle('hidden', !isAdmin);
+
+        // Toggle admin badge
+        const badge = document.getElementById('admin-badge');
+        if (badge) badge.classList.toggle('hidden', !isAdmin);
 
         // Subtext in brand
         const subtext = document.getElementById('brand-subtext');
@@ -1789,12 +1848,22 @@
 
         document.getElementById('public-reserve-name').value = '';
         document.getElementById('public-reserve-phone').value = '';
-        document.getElementById('modal-public-reserve').classList.remove('hidden');
+        const modal = document.getElementById('modal-public-reserve');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
       }
+      window.openPublicReserveModal = openPublicReserveModal;
 
       function closePublicReserveModal() {
-        document.getElementById('modal-public-reserve').classList.add('hidden');
+        const modal = document.getElementById('modal-public-reserve');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
       }
+      window.closePublicReserveModal = closePublicReserveModal;
 
       function copyPublicPixKey() {
         if (!appData.config.pixKey) return;
@@ -1804,6 +1873,7 @@
         btn.textContent = 'Copiado!';
         setTimeout(() => btn.textContent = 'Copiar PIX', 2000);
       }
+      window.copyPublicPixKey = copyPublicPixKey;
 
       function handlePublicReserveSubmit(e) {
         if (e) e.preventDefault();
@@ -1841,6 +1911,7 @@
         );
         window.open(`https://wa.me/?text=${msg}`, '_blank');
       }
+      window.handlePublicReserveSubmit = handlePublicReserveSubmit;
 
       function openPublicOccupiedModal(item) {
         playTone(300, 0.06);
@@ -1848,12 +1919,22 @@
         document.getElementById('occupied-num-status').textContent = item.status === 'paid'
           ? 'Este número já foi adquirido com pagamento confirmado.'
           : 'Este número já se encontra reservado por outro participante.';
-        document.getElementById('modal-public-occupied').classList.remove('hidden');
+        const modal = document.getElementById('modal-public-occupied');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
       }
+      window.openPublicOccupiedModal = openPublicOccupiedModal;
 
       function closePublicOccupiedModal() {
-        document.getElementById('modal-public-occupied').classList.add('hidden');
+        const modal = document.getElementById('modal-public-occupied');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
       }
+      window.closePublicOccupiedModal = closePublicOccupiedModal;
 
       // Initial Bootstrap
       setupLongClickAdmin();
