@@ -39,10 +39,15 @@
     <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 no-print">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <!-- Brand with Long Click Detection for Admin Access -->
-        <div id="brand-longclick-target" class="flex items-center gap-3 cursor-pointer select-none group relative py-1" title="Clique e segure para abrir o Painel Administrativo">
-          <div id="brand-logo-icon" class="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-sm text-lg transition-transform group-active:scale-95 relative">
-            🎟️
-            <div id="longclick-progress-ring" class="hidden absolute inset-0 rounded-lg border-2 border-amber-400 animate-pulse"></div>
+        <div id="brand-longclick-target" 
+             ondblclick="openAdminAuthModal()"
+             class="flex items-center gap-3 cursor-pointer select-none group relative py-1" 
+             style="touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;"
+             title="Pressione e segure (ou dê 2 cliques rápidos) para abrir o Painel Administrativo">
+          <div id="brand-logo-icon" class="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-sm text-lg transition-transform group-active:scale-95 relative overflow-hidden">
+            <span class="relative z-10">🎟️</span>
+            <!-- Progress Fill Bar while Holding -->
+            <div id="longclick-fill-bar" class="absolute bottom-0 left-0 right-0 bg-amber-400 h-0 transition-all duration-500 ease-linear opacity-80 pointer-events-none"></div>
           </div>
           <div>
             <div class="flex items-center gap-2">
@@ -402,6 +407,17 @@
         </div>
       </section>
     </main>
+
+    <!-- Clean Footer with Discreet Admin Link -->
+    <footer class="border-t border-slate-800/80 bg-slate-950 py-4 text-center text-xs text-slate-500 no-print mt-auto">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span>RifaMaster · Gestão Segura de Rifas</span>
+        <button onclick="openAdminAuthModal()" class="text-slate-600 hover:text-slate-400 text-[11px] underline flex items-center gap-1 transition-colors">
+          <span>Área do Administrador</span>
+          <span>🔐</span>
+        </button>
+      </div>
+    </footer>
 
     <!-- Modal: Register / Edit Buyer -->
     <div id="modal-buyer" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
@@ -1585,17 +1601,31 @@
 
       // Long Click Detection for Admin Authentication
       let longClickTimer = null;
-      const LONG_CLICK_DURATION = 650; // ms
+      const LONG_CLICK_DURATION = 500; // ms
 
       function setupLongClickAdmin() {
         const target = document.getElementById('brand-longclick-target');
-        const ring = document.getElementById('longclick-progress-ring');
+        const fillBar = document.getElementById('longclick-fill-bar');
+        const subtext = document.getElementById('brand-subtext');
         if (!target) return;
 
+        // Prevent browser default context menu from intercepting the long press
+        target.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          openAdminAuthModal();
+        });
+
         function startHold(e) {
-          if (e.button && e.button !== 0) return; // Only main button
+          if (isAdmin) return;
           clearHold();
-          if (ring) ring.classList.remove('hidden');
+
+          if (fillBar) {
+            fillBar.style.height = '100%';
+          }
+          if (subtext) {
+            subtext.textContent = 'Segure para entrar...';
+            subtext.classList.add('text-amber-300');
+          }
 
           longClickTimer = setTimeout(() => {
             clearHold();
@@ -1610,19 +1640,44 @@
             clearTimeout(longClickTimer);
             longClickTimer = null;
           }
-          if (ring) ring.classList.add('hidden');
+          if (fillBar) {
+            fillBar.style.height = '0%';
+          }
+          if (subtext) {
+            subtext.textContent = isAdmin ? '👑 Modo Administrador Ativo' : 'Segure para acessar o Painel';
+            subtext.classList.remove('text-amber-300');
+          }
         }
 
+        // Pointer Events (Unified Mouse & Touch with Pointer Capture)
+        target.addEventListener('pointerdown', (e) => {
+          if (e.isPrimary) {
+            try { target.setPointerCapture(e.pointerId); } catch(err) {}
+            startHold(e);
+          }
+        });
+
+        target.addEventListener('pointerup', (e) => {
+          try { target.releasePointerCapture(e.pointerId); } catch(err) {}
+          clearHold();
+        });
+
+        target.addEventListener('pointercancel', clearHold);
+        target.addEventListener('pointerleave', clearHold);
+
+        // Fallback Mouse and Touch Events
         target.addEventListener('mousedown', startHold);
         target.addEventListener('mouseup', clearHold);
         target.addEventListener('mouseleave', clearHold);
-
-        target.addEventListener('touchstart', (e) => {
-          startHold(e);
-        }, { passive: true });
-
+        target.addEventListener('touchstart', startHold, { passive: true });
         target.addEventListener('touchend', clearHold);
         target.addEventListener('touchcancel', clearHold);
+
+        // Double click shortcut (instant access)
+        target.addEventListener('dblclick', () => {
+          clearHold();
+          openAdminAuthModal();
+        });
       }
 
       function openAdminAuthModal() {
