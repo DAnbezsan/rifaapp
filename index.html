@@ -103,10 +103,14 @@
         <div class="bg-gradient-to-r from-slate-800 via-slate-800/90 to-slate-850 rounded-xl p-5 border border-slate-700/80 shadow-md">
           <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div class="space-y-1">
-              <div class="flex items-center gap-2 text-xs">
+              <div class="flex flex-wrap items-center gap-2 text-xs">
                 <span class="font-semibold text-emerald-400 uppercase tracking-wider">Rifa Ativa</span>
                 <span class="text-slate-500">·</span>
                 <span id="banner-numbers-range" class="text-slate-400 font-mono">100 números</span>
+                <span id="banner-draw-date" class="hidden text-amber-300 font-mono"></span>
+                <button type="button" onclick="switchTab('settings')" class="hidden admin-only px-2.5 py-0.5 text-[11px] font-bold text-emerald-300 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 rounded-lg transition-all flex items-center gap-1 shadow-sm">
+                  <span>✏️ Editar Prêmio, Cotas e Valores</span>
+                </button>
               </div>
               <h1 id="banner-title" class="text-xl sm:text-2xl font-bold text-white tracking-tight">Grande Rifa Beneficente</h1>
               <p id="banner-desc" class="text-xs sm:text-sm text-slate-300 max-w-2xl">Ação entre amigos com sorteio oficial. Participe e boa sorte!</p>
@@ -228,7 +232,14 @@
         <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-3 no-print">
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <input id="buyers-search" type="text" oninput="renderBuyersList()" placeholder="Buscar participante por nome, WhatsApp ou número..." class="w-full sm:max-w-md px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            <button onclick="exportCSV()" class="px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-900 hover:bg-slate-750 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">📥 Exportar Planilha (CSV)</button>
+            <div class="flex items-center gap-2">
+              <button onclick="openNewBuyerModal()" class="px-3.5 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                <span>➕ Adicionar Comprador</span>
+              </button>
+              <button onclick="exportCSV()" class="px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-900 hover:bg-slate-750 border border-slate-700 rounded-lg transition-colors flex items-center gap-1.5">
+                <span>📥 Exportar CSV</span>
+              </button>
+            </div>
           </div>
           <div class="flex items-center justify-between text-xs text-slate-400 font-mono pt-2 border-t border-slate-700/60">
             <span id="buyers-summary-count">0 participantes cadastrados</span>
@@ -336,52 +347,88 @@
 
           <form onsubmit="handleSaveSettingsForm(event)" class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Raffle Title -->
               <div class="space-y-1 sm:col-span-2">
-                <label class="text-xs font-semibold text-slate-300">Título da Rifa</label>
-                <input id="setting-title" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+                <label class="text-xs font-semibold text-slate-300">Título da Rifa *</label>
+                <input id="setting-title" type="text" required placeholder="Ex: Grande Rifa Beneficente" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              <!-- Main Prize Name -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Prêmio Principal</label>
-                <input id="setting-prize" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+                <label class="text-xs font-semibold text-slate-300">🎁 Nome do Prêmio Principal *</label>
+                <input id="setting-prize" type="text" required placeholder="Ex: Smartphone de Última Geração + R$ 1.000 no PIX" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              <!-- Extra / Secondary Prizes -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Prêmios Extras</label>
-                <input id="setting-secondary-prizes" type="text" placeholder="2º Prêmio: R$ 500 no PIX" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+                <label class="text-xs font-semibold text-slate-300">Prêmios Extras (Opcional)</label>
+                <input id="setting-secondary-prizes" type="text" placeholder="Ex: 2º Prêmio: R$ 500 no PIX · 3º Prêmio: R$ 250" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              <!-- Ticket Price -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Valor por Cota (R$)</label>
-                <input id="setting-price" type="number" step="0.5" min="0.5" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono" />
+                <label class="text-xs font-semibold text-slate-300">💵 Valor da Cota (R$) *</label>
+                <input id="setting-price" type="number" step="0.5" min="0.5" required placeholder="15.00" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              <!-- Total Numbers (Any Quantity Allowed) -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Total de Números</label>
-                <select id="setting-total-numbers" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white">
-                  <option value="50">50 números</option>
-                  <option value="100">100 números (Padrão)</option>
-                  <option value="200">200 números</option>
-                  <option value="500">500 números</option>
-                  <option value="1000">1.000 números</option>
-                </select>
+                <label class="text-xs font-semibold text-slate-300">🔢 Quantidade de Números (Cotas) *</label>
+                <input id="setting-total-numbers" type="number" min="5" max="10000" step="1" required placeholder="Ex: 50, 100, 150, 200..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <div class="flex flex-wrap gap-1 mt-1 text-[11px]">
+                  <span class="text-slate-500 self-center text-[10px]">Atalhos:</span>
+                  <button type="button" onclick="setTotalNumbersPreset(25)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700">25</button>
+                  <button type="button" onclick="setTotalNumbersPreset(50)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700">50</button>
+                  <button type="button" onclick="setTotalNumbersPreset(100)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700 font-bold">100</button>
+                  <button type="button" onclick="setTotalNumbersPreset(200)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700">200</button>
+                  <button type="button" onclick="setTotalNumbersPreset(500)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700">500</button>
+                  <button type="button" onclick="setTotalNumbersPreset(1000)" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-300 border border-slate-700">1.000</button>
+                </div>
               </div>
+
+              <!-- Numbering Style -->
               <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-300">Estilo de Numeração</label>
-                <select id="setting-numbering-style" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white">
+                <select id="setting-numbering-style" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
                   <option value="1-based">Iniciando em 01 (ex: 01 a 100)</option>
                   <option value="0-based">Iniciando em 00 (ex: 00 a 99)</option>
                 </select>
               </div>
+
+              <!-- Draw Date -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Chave PIX</label>
-                <input id="setting-pix-key" type="text" placeholder="CPF, Celular, E-mail ou Aleatória" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono" />
+                <label class="text-xs font-semibold text-slate-300">📅 Data e Horário do Sorteio (Opcional)</label>
+                <input id="setting-draw-date" type="text" placeholder="Ex: 15/10/2026 às 20h pela Loteria Federal" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              <!-- PIX Key -->
               <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-300">Favorecido do PIX</label>
-                <input id="setting-pix-name" type="text" placeholder="Nome completo" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white" />
+                <label class="text-xs font-semibold text-slate-300">🔑 Chave PIX</label>
+                <input id="setting-pix-key" type="text" placeholder="CPF, Celular, E-mail ou Aleatória" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <!-- PIX Name -->
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Favorecido / Titular do PIX</label>
+                <input id="setting-pix-name" type="text" placeholder="Nome completo do recebedor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <!-- Organizer Phone -->
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">📱 WhatsApp do Organizador</label>
+                <input id="setting-organizer-phone" type="text" placeholder="(11) 99999-9999" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <!-- Description -->
+              <div class="space-y-1 sm:col-span-2">
+                <label class="text-xs font-semibold text-slate-300">Descrição / Regulamento da Rifa</label>
+                <textarea id="setting-description" rows="2" placeholder="Instruções de pagamento, envio de prêmios e regras..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
               </div>
             </div>
 
             <div class="pt-4 flex justify-end">
-              <button type="submit" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm">
-                Salvar Configurações
+              <button type="submit" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <span>💾 Salvar Configurações da Rifa</span>
               </button>
             </div>
           </form>
@@ -440,12 +487,18 @@
           <button onclick="closeBuyerModal()" class="p-1.5 text-slate-400 hover:text-white">✕</button>
         </div>
 
-        <div class="px-6 py-3 bg-slate-950/50 border-b border-slate-800">
-          <div class="flex items-center justify-between text-xs mb-1.5">
-            <span class="text-slate-400">Números Selecionados:</span>
+        <div class="px-6 py-3 bg-slate-950/50 border-b border-slate-800 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-400">Números Atribuídos a este Comprador:</span>
             <span id="modal-buyer-total-price" class="text-emerald-400 font-bold font-mono">Total: R$ 0,00</span>
           </div>
           <div id="modal-buyer-numbers-pills" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto"></div>
+          <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+            <input id="modal-buyer-extra-num-input" type="number" placeholder="Vincular outro número (ex: 25)..." class="flex-1 px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <button type="button" onclick="addNumberToCurrentModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 whitespace-nowrap">
+              + Incluir Cota
+            </button>
+          </div>
         </div>
 
         <form onsubmit="handleSaveBuyerForm(event)" class="p-6 space-y-4 overflow-y-auto">
@@ -676,8 +729,10 @@
         pricePerNumber: 15.0,
         totalNumbers: 100,
         numberingStyle: '1-based',
+        drawDate: 'Sorteio pela Loteria Federal',
         pixKey: 'rifa.amigos@exemplo.com.br',
         pixName: 'Coordenação da Rifa',
+        organizerPhone: '(11) 99999-9999',
       };
 
       function formatNum(num, total, style) {
@@ -891,6 +946,16 @@
         document.getElementById('banner-price').textContent = `R$ ${config.pricePerNumber.toFixed(2).replace('.', ',')}`;
         document.getElementById('banner-numbers-range').textContent = `${config.totalNumbers} números (${config.numberingStyle === '0-based' ? '00' : '01'} a ${config.numberingStyle === '0-based' ? config.totalNumbers - 1 : config.totalNumbers})`;
 
+        const drawDateEl = document.getElementById('banner-draw-date');
+        if (drawDateEl) {
+          if (config.drawDate) {
+            drawDateEl.textContent = `· 📅 ${config.drawDate}`;
+            drawDateEl.classList.remove('hidden');
+          } else {
+            drawDateEl.classList.add('hidden');
+          }
+        }
+
         // Progress
         document.getElementById('progress-paid-percent').textContent = `${paidPct}% pagos`;
         document.getElementById('progress-reserved-percent').textContent = `${resPct}% reservados`;
@@ -1102,7 +1167,7 @@
       // Buyer Modal
       function openBuyerModal(targetNumbers) {
         playTone(450, 0.05);
-        currentBuyerModalNumbers = targetNumbers;
+        currentBuyerModalNumbers = [...targetNumbers];
         const first = appData.numbers[targetNumbers[0]];
         const isExisting = first && (first.status === 'paid' || first.status === 'reserved');
 
@@ -1113,17 +1178,7 @@
         document.getElementById('modal-buyer-notes').value = isExisting ? (first.notes || '') : '';
         setModalBuyerStatus(isExisting ? first.status : 'paid');
 
-        const pills = document.getElementById('modal-buyer-numbers-pills');
-        pills.innerHTML = '';
-        targetNumbers.forEach(num => {
-          const span = document.createElement('span');
-          span.className = 'px-2 py-0.5 bg-slate-800 text-emerald-300 font-mono font-bold text-xs rounded border border-slate-700';
-          span.textContent = appData.numbers[num]?.formattedNumber || num;
-          pills.appendChild(span);
-        });
-
-        const totalAmount = targetNumbers.length * appData.config.pricePerNumber;
-        document.getElementById('modal-buyer-total-price').textContent = `Total: R$ ${totalAmount.toFixed(2).replace('.', ',')}`;
+        renderModalBuyerPills();
 
         const releaseBtn = document.getElementById('modal-buyer-release-btn');
         releaseBtn.classList.toggle('hidden', !isExisting);
@@ -1134,6 +1189,65 @@
           modal.style.display = 'flex';
         }
       }
+      window.openBuyerModal = openBuyerModal;
+
+      function openNewBuyerModal() {
+        // Find first available number or start with number 1
+        const available = Object.values(appData.numbers).filter(n => n.status === 'available');
+        const numToUse = available.length > 0 ? available[0].number : (appData.config.numberingStyle === '0-based' ? 0 : 1);
+        openBuyerModal([numToUse]);
+      }
+      window.openNewBuyerModal = openNewBuyerModal;
+
+      function renderModalBuyerPills() {
+        const pills = document.getElementById('modal-buyer-numbers-pills');
+        pills.innerHTML = '';
+        currentBuyerModalNumbers.sort((a,b)=>a-b).forEach(num => {
+          const span = document.createElement('span');
+          span.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 text-emerald-300 font-mono font-bold text-xs rounded-lg border border-slate-700 shadow-sm';
+          span.innerHTML = `
+            <span>${appData.numbers[num]?.formattedNumber || num}</span>
+            <button type="button" onclick="removeNumberFromCurrentModal(${num})" class="text-slate-400 hover:text-rose-400 text-xs font-black transition-colors" title="Remover número">✕</button>
+          `;
+          pills.appendChild(span);
+        });
+
+        const totalAmount = currentBuyerModalNumbers.length * appData.config.pricePerNumber;
+        document.getElementById('modal-buyer-total-price').textContent = `Total: R$ ${totalAmount.toFixed(2).replace('.', ',')}`;
+      }
+      window.renderModalBuyerPills = renderModalBuyerPills;
+
+      function addNumberToCurrentModal() {
+        const input = document.getElementById('modal-buyer-extra-num-input');
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) return;
+        const num = parseInt(val, 10);
+        if (isNaN(num) || !appData.numbers[num]) {
+          alert('Número inválido ou fora do total da rifa!');
+          return;
+        }
+        if (currentBuyerModalNumbers.includes(num)) {
+          alert('Este número já está na lista!');
+          return;
+        }
+        playTone(550, 0.04);
+        currentBuyerModalNumbers.push(num);
+        input.value = '';
+        renderModalBuyerPills();
+      }
+      window.addNumberToCurrentModal = addNumberToCurrentModal;
+
+      function removeNumberFromCurrentModal(num) {
+        if (currentBuyerModalNumbers.length <= 1) {
+          alert('O comprador precisa ter pelo menos um número!');
+          return;
+        }
+        playTone(400, 0.04);
+        currentBuyerModalNumbers = currentBuyerModalNumbers.filter(n => n !== num);
+        renderModalBuyerPills();
+      }
+      window.removeNumberFromCurrentModal = removeNumberFromCurrentModal;
 
       function openBuyerModalForSelected() {
         if (selectedNumbers.length > 0) openBuyerModal(selectedNumbers);
@@ -1189,6 +1303,7 @@
         selectedNumbers = [];
         closeBuyerModal();
         renderGrid();
+        renderBuyersList();
       }
 
       function saveBuyerAndSendWhatsApp() {
@@ -1220,16 +1335,37 @@
       }
 
       function releaseCurrentBuyerModalNumbers() {
-        if (!confirm('Deseja realmente liberar estes números e remover o comprador?')) return;
+        if (!confirm('Deseja realmente desvincular o comprador e liberar estes números?')) return;
         bulkSetStatus('available');
         closeBuyerModal();
         renderGrid();
+        renderBuyersList();
       }
+
+      function deleteBuyerGroup(numbers) {
+        if (!confirm(`Deseja realmente desvincular o comprador e liberar ${numbers.length} número(s) para a cartela?`)) return;
+        playTone(350, 0.08);
+        const updated = { ...appData.numbers };
+        numbers.forEach(n => {
+          if (updated[n]) {
+            updated[n] = {
+              number: n,
+              formattedNumber: updated[n].formattedNumber,
+              status: 'available',
+            };
+          }
+        });
+        saveData({ ...appData, numbers: updated });
+        renderGrid();
+        renderBuyersList();
+      }
+      window.deleteBuyerGroup = deleteBuyerGroup;
 
       // Buyers Table View
       function renderBuyersList() {
         const q = (document.getElementById('buyers-search')?.value || '').toLowerCase().trim();
         const tbody = document.getElementById('buyers-table-body');
+        if (!tbody) return;
         tbody.innerHTML = '';
 
         const map = new Map();
@@ -1274,13 +1410,16 @@
               </div>
             </td>
             <td class="px-4 py-3">
-              <span class="text-xs px-2 py-1 rounded ${allPaid ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-amber-950/60 text-amber-400 border border-amber-800/60'}">
+              <span class="text-xs px-2 py-1 rounded font-medium ${allPaid ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-amber-950/60 text-amber-400 border border-amber-800/60'}">
                 ${allPaid ? '✅ Pago' : `⏳ ${b.reservedCount} pendente(s)`}
               </span>
             </td>
             <td class="px-4 py-3 text-right font-mono font-bold text-white">R$ ${b.totalSpent.toFixed(2).replace('.', ',')}</td>
             <td class="px-4 py-3 text-right no-print">
-              <button class="px-2 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded text-xs font-medium mr-1" onclick="openBuyerModal([${b.numbers.map(n=>n.number).join(',')}])">Editar</button>
+              <div class="inline-flex items-center gap-1">
+                <button class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded text-xs font-semibold transition-colors" onclick="openBuyerModal([${b.numbers.map(n=>n.number).join(',')}])">✏️ Editar Comprador</button>
+                <button class="px-2.5 py-1 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded text-xs font-semibold transition-colors" onclick="deleteBuyerGroup([${b.numbers.map(n=>n.number).join(',')}])">🗑️ Liberar</button>
+              </div>
             </td>
           `;
           tbody.appendChild(tr);
@@ -1403,52 +1542,77 @@
       }
 
       // Settings
+      function setTotalNumbersPreset(val) {
+        const input = document.getElementById('setting-total-numbers');
+        if (input) {
+          input.value = val;
+          playTone(550, 0.04);
+        }
+      }
+      window.setTotalNumbersPreset = setTotalNumbersPreset;
+
       function populateSettingsForm() {
         const c = appData.config;
-        document.getElementById('setting-title').value = c.title;
-        document.getElementById('setting-prize').value = c.prize;
-        document.getElementById('setting-secondary-prizes').value = c.secondaryPrizes || '';
-        document.getElementById('setting-price').value = c.pricePerNumber;
-        document.getElementById('setting-total-numbers').value = c.totalNumbers;
-        document.getElementById('setting-numbering-style').value = c.numberingStyle;
-        document.getElementById('setting-pix-key').value = c.pixKey || '';
-        document.getElementById('setting-pix-name').value = c.pixName || '';
+        if (document.getElementById('setting-title')) document.getElementById('setting-title').value = c.title || '';
+        if (document.getElementById('setting-prize')) document.getElementById('setting-prize').value = c.prize || '';
+        if (document.getElementById('setting-secondary-prizes')) document.getElementById('setting-secondary-prizes').value = c.secondaryPrizes || '';
+        if (document.getElementById('setting-price')) document.getElementById('setting-price').value = c.pricePerNumber || 15;
+        if (document.getElementById('setting-total-numbers')) document.getElementById('setting-total-numbers').value = c.totalNumbers || 100;
+        if (document.getElementById('setting-numbering-style')) document.getElementById('setting-numbering-style').value = c.numberingStyle || '1-based';
+        if (document.getElementById('setting-draw-date')) document.getElementById('setting-draw-date').value = c.drawDate || '';
+        if (document.getElementById('setting-pix-key')) document.getElementById('setting-pix-key').value = c.pixKey || '';
+        if (document.getElementById('setting-pix-name')) document.getElementById('setting-pix-name').value = c.pixName || '';
+        if (document.getElementById('setting-organizer-phone')) document.getElementById('setting-organizer-phone').value = c.organizerPhone || '';
+        if (document.getElementById('setting-description')) document.getElementById('setting-description').value = c.description || '';
       }
+      window.populateSettingsForm = populateSettingsForm;
 
       function handleSaveSettingsForm(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         playTone(600, 0.08);
-        const newTotal = parseInt(document.getElementById('setting-total-numbers').value, 10);
-        const newStyle = document.getElementById('setting-numbering-style').value;
+
+        const rawTotal = parseInt(document.getElementById('setting-total-numbers')?.value, 10);
+        const newTotal = Math.max(5, Math.min(10000, isNaN(rawTotal) ? 100 : rawTotal));
+        const newStyle = document.getElementById('setting-numbering-style')?.value || '1-based';
 
         const newConfig = {
           ...appData.config,
-          title: document.getElementById('setting-title').value.trim(),
-          prize: document.getElementById('setting-prize').value.trim(),
-          secondaryPrizes: document.getElementById('setting-secondary-prizes').value.trim(),
-          pricePerNumber: parseFloat(document.getElementById('setting-price').value) || 10,
+          title: document.getElementById('setting-title')?.value.trim() || 'Grande Rifa Beneficente',
+          prize: document.getElementById('setting-prize')?.value.trim() || 'Prêmio Especial',
+          secondaryPrizes: document.getElementById('setting-secondary-prizes')?.value.trim() || '',
+          pricePerNumber: Math.max(0.5, parseFloat(document.getElementById('setting-price')?.value) || 15),
           totalNumbers: newTotal,
           numberingStyle: newStyle,
-          pixKey: document.getElementById('setting-pix-key').value.trim(),
-          pixName: document.getElementById('setting-pix-name').value.trim(),
+          drawDate: document.getElementById('setting-draw-date')?.value.trim() || '',
+          pixKey: document.getElementById('setting-pix-key')?.value.trim() || '',
+          pixName: document.getElementById('setting-pix-name')?.value.trim() || '',
+          organizerPhone: document.getElementById('setting-organizer-phone')?.value.trim() || '',
+          description: document.getElementById('setting-description')?.value.trim() || '',
         };
 
         let updatedNumbers = { ...appData.numbers };
         if (newTotal !== appData.config.totalNumbers || newStyle !== appData.config.numberingStyle) {
           const fresh = generateNumbers(newConfig);
+          // Preserve any existing buyer data for numbers that fit within the new range
           Object.keys(fresh).forEach(k => {
             const num = Number(k);
             if (updatedNumbers[num]) {
-              fresh[num] = { ...fresh[num], ...updatedNumbers[num], formattedNumber: fresh[num].formattedNumber };
+              fresh[num] = {
+                ...fresh[num],
+                ...updatedNumbers[num],
+                formattedNumber: fresh[num].formattedNumber,
+              };
             }
           });
           updatedNumbers = fresh;
         }
 
         saveData({ ...appData, config: newConfig, numbers: updatedNumbers });
-        alert('Configurações salvas com sucesso!');
+        alert('Configurações da Rifa atualizadas e salvas com sucesso!');
+        updateStats();
         switchTab('grid');
       }
+      window.handleSaveSettingsForm = handleSaveSettingsForm;
 
       function downloadBackupJSON() {
         playTone(500, 0.05);
